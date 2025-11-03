@@ -1,0 +1,145 @@
+{
+  "title": "Learn Dependency injection with Python & pico-ioc",
+  "date": "2024-07-27",
+  "levels": [
+    {
+      "id": 0,
+      "title": "Hello, World",
+      "description": "<h4>Hello, Python-in-the-Browser</h4><p>Welcome! You have two files: <code>app.py</code> and <code>main.py</code>.</p><p class=\"mt-2\">Your task is to import the <code>greet</code> function from <code>app.py</code> into <code>main.py</code>, call it with your name, and print the result. Press 'Run' to execute <code>main.py</code>.</p>",
+      "files": [
+          { "name": "app.py", "content": "def greet(name):\n    return f\"Hello, {name}!\"\n" },
+          { "name": "main.py", "content": "from app import greet\n\n# 👈 Call greet() and print the result\nprint(\"Edit me!\")\n" }
+      ],
+      "packages": [],
+      "hints": [
+        "You need to call the `greet` function, which is already imported. It takes one argument: a name (as a string).",
+        "To see the output in the console, you must wrap the function call inside a `print()` statement.",
+        "The final line should look something like `print(greet(\"World\"))`."
+      ],
+      "solution": {
+        "main.py": "from app import greet\n\n# 👈 Call greet() and print the result\nprint(greet(\"World\"))\n"
+      }
+    },
+    {
+      "id": 1,
+      "title": "Testing with Pytest",
+      "description": "<h4>Introduction to Pytest</h4><p>Now let's test our code. We have <code>app.py</code> and <code>test_main.py</code>.</p><p class=\"mt-2\">Press 'Run' to execute pytest. Your goal is to fix the failing test in <code>test_main.py</code> to make it pass.</p>",
+      "files": [
+        { "name": "app.py", "content": "def greet(name):\n    return f\"Hello, {name}!\"\n" },
+        { "name": "test_main.py", "content": "from app import greet\n\ndef test_greet():\n    assert greet(\"Test\") == \"Hello, Test!\"\n\n# 👈 Fix this failing test\ndef test_greet_fails():\n    assert greet(\"Fail\") == \"This will fail\"\n" }
+      ],
+      "packages": ["pytest"],
+      "hints": [
+        "The test `test_greet_fails` is asserting that `greet('Fail')` returns \"This will fail\".",
+        "The `greet` function actually returns \"Hello, Fail\".",
+        "To make the test pass, change the expected value in the assert statement to match what the function actually returns."
+      ],
+      "solution": {
+        "test_main.py": "from app import greet\n\ndef test_greet():\n    assert greet(\"Test\") == \"Hello, Test!\"\n\n# 👈 Fix this failing test\ndef test_greet_fails():\n    assert greet(\"Fail\") == \"Hello, Fail!\"\n"
+      }
+    },
+    {
+      "id": 2,
+      "title": "Introducing Pico-IOC",
+      "description": "<h4>Your First Component</h4><p>Let's start with `pico-ioc`. The core idea is to register components and let the container manage their creation and dependencies.</p><p>We use the `@component` decorator to mark a class as a managed component. Your task is to decorate the `Greeter` class in `app.py` with `@component`.</p><p>In `main.py`, we initialize `pico-ioc` and then use `pico.get(Greeter)` to fetch an instance of our component.</p>",
+      "files": [
+        { "name": "app.py", "content": "from pico_ioc import component\n\n# 👈 Add the @component decorator here\nclass Greeter:\n    def greet(self, name: str) -> str:\n        return f\"Hello, {name}!\"\n" },
+        { "name": "main.py", "content": "import pico_ioc as pico\nimport app\n\n# Initializes the container and scans 'app' for components\npico.init(modules=[app])\n\n# Get an instance of the Greeter component\ngreeter = pico.get(app.Greeter)\n\nprint(greeter.greet(\"pico-ioc\"))\n" }
+      ],
+      "packages": ["pico-ioc"],
+      "solution": {
+        "app.py": "from pico_ioc import component\n\n@component\nclass Greeter:\n    def greet(self, name: str) -> str:\n        return f\"Hello, {name}!\"\n"
+      }
+    },
+    {
+      "id": 3,
+      "title": "Basic Dependency Injection",
+      "description": "<h4>Injecting a Dependency</h4><p>Now let's see dependency injection in action. We have a `Greeter` that depends on a `MessageFormatter`.</p><p>Notice the `__init__` method of `Greeter` uses type hints: `__init__(self, formatter: MessageFormatter)`. `pico-ioc` will see this, find the `MessageFormatter` component, create an instance, and pass it to `Greeter`'s constructor automatically.</p><p>Your task is to add the `@component` decorator to both `MessageFormatter` and `Greeter` in `app.py`.</p>",
+      "files": [
+        { "name": "app.py", "content": "from pico_ioc import component\n\n# 👈 Add decorator\nclass MessageFormatter:\n    def format(self, name: str) -> str:\n        return f\"Hello, {name}!\"\n\n# 👈 Add decorator\nclass Greeter:\n    def __init__(self, formatter: MessageFormatter):\n        self._formatter = formatter\n\n    def greet(self, name: str) -> str:\n        return self._formatter.format(name)\n" },
+        { "name": "main.py", "content": "import pico_ioc as pico\nimport app\n\npico.init(modules=[app])\n\ngreeter = pico.get(app.Greeter)\n\nprint(greeter.greet(\"Dependency Injection\"))\n" }
+      ],
+      "packages": ["pico-ioc"],
+      "solution": {
+        "app.py": "from pico_ioc import component\n\n@component\nclass MessageFormatter:\n    def format(self, name: str) -> str:\n        return f\"Hello, {name}!\"\n\n@component\nclass Greeter:\n    def __init__(self, formatter: MessageFormatter):\n        self._formatter = formatter\n\n    def greet(self, name: str) -> str:\n        return self._formatter.format(name)\n"
+      }
+    },
+    {
+      "id": 4,
+      "title": "Understanding Scopes",
+      "description": "<h4>Singleton vs. Prototype</h4><p>Components can have different scopes. The default is `singleton`, meaning only one instance is ever created. `prototype` means a new instance is created every time it's requested.</p><p>Your task is to change the scope of the `PrototypeGreeter` in `app.py` to `prototype` by adding `scope='prototype'` to its `@component` decorator.</p><p>The `main.py` file will get two instances of each greeter and print whether they are the same object or not.</p>",
+      "files": [
+        { "name": "app.py", "content": "from pico_ioc import component, scope\n\n@component(scope=scope.SINGLETON) # scope.SINGLETON is the default\nclass SingletonGreeter:\n    pass\n\n# 👈 Change the scope to prototype\n@component\nclass PrototypeGreeter:\n    pass\n" },
+        { "name": "main.py", "content": "import pico_ioc as pico\nimport app\n\npico.init(modules=[app])\n\ns1 = pico.get(app.SingletonGreeter)\ns2 = pico.get(app.SingletonGreeter)\nprint(f\"Singleton instances are the same: {s1 is s2}\")\n\np1 = pico.get(app.PrototypeGreeter)\np2 = pico.get(app.PrototypeGreeter)\nprint(f\"Prototype instances are the same: {p1 is p2}\")\n" }
+      ],
+      "packages": ["pico-ioc"],
+      "solution": {
+        "app.py": "from pico_ioc import component, scope\n\n@component(scope=scope.SINGLETON) # scope.SINGLETON is the default\nclass SingletonGreeter:\n    pass\n\n# 👈 Change the scope to prototype\n@component(scope=scope.PROTOTYPE)\nclass PrototypeGreeter:\n    pass\n"
+      }
+    },
+    {
+      "id": 5,
+      "title": "Dependency Graph",
+      "description": "<h4>Visualizing Dependencies</h4><p>`pico-ioc` can generate a dependency graph, which is super useful for understanding your application's structure. The logic for generating the graph has been moved into a separate <code>graph_utils.py</code> file for better organization. <code>main.py</code> now imports from this utility file.</p><p>This application is already set up to detect and display the graph. Just press 'Run' to see the dependency graph for the components in `app.py`.</p><p>There's no code to change here. Just run and observe the output in the 'Graph' tab.</p>",
+      "files": [
+        { "name": "app.py", "content": "from pico_ioc import component\n\n@component\nclass A:\n    pass\n\n@component\nclass B:\n    def __init__(self, a: A):\n        self.a = a\n\n@component\nclass C:\n    def __init__(self, a: A, b: B):\n        self.a = a\n        self.b = b\n" },
+        { "name": "main.py", "content": "import app\nfrom pico_ioc import init\nfrom graph_utils import generate_graph_data, print_graph_data\n\n# Configure pico-ioc to scan the 'app' module\ncontainer = init(modules=[app])\nprint(\"Container initialized. Generating graph...\")\n\n# Generate and print the dependency graph data\ngraph_data = generate_graph_data(container)\nprint_graph_data(graph_data)\n" },
+        { "name": "graph_utils.py", "content": "import json\nfrom pico_ioc import PicoContainer\nfrom pico_ioc.factory import ProviderMetadata\nfrom typing import Dict, Any\n\ndef get_node_details(key: Any, metadata: ProviderMetadata) -> Dict[str, Any]:\n    \"\"\"Helper function to extract serializable node data.\"\"\"\n    try:\n        name = getattr(key, \"__name__\", str(key))\n        module = getattr(key, \"__module__\", None)\n    except Exception:\n        name = str(key)\n        module = None\n\n    if module is None:\n        cls = metadata.concrete_class or metadata.factory_class\n        if cls:\n            module = getattr(cls, \"__module__\", None)\n    \n    return {\n        \"id\": name,\n        \"name\": name,\n        \"scope\": metadata.scope,\n        \"is_protocol\": getattr(key, \"_is_protocol\", False),\n        \"module\": module or \"unknown\"\n    }\n\ndef generate_graph_data(container: PicoContainer) -> Dict[str, Any]:\n    \"\"\"Generates a dependency graph from a pico-ioc container.\"\"\"\n    edge_map = container.build_resolution_graph()\n    all_metadata = container._locator._metadata\n    key_to_node_data = {}\n\n    nodes = []\n    valid_node_ids = set()\n\n    for key, md in all_metadata.items():\n        node_data = get_node_details(key, md)\n        key_to_node_data[key] = node_data\n        if not node_data[\"module\"].startswith(\"pico_ioc\"):\n            nodes.append(node_data)\n            valid_node_ids.add(node_data[\"id\"])\n\n    edges = []\n    for parent_key, child_keys in edge_map.items():\n        parent_node_data = key_to_node_data.get(parent_key)\n        if not parent_node_data or parent_node_data[\"id\"] not in valid_node_ids:\n            continue\n        for child_key in child_keys:\n            child_node_data = key_to_node_data.get(child_key)\n            if not child_node_data or child_node_data[\"id\"] not in valid_node_ids:\n                continue\n            edges.append({\"from\": parent_node_data[\"id\"], \"to\": child_node_data[\"id\"]})\n\n    return {\"nodes\": nodes, \"edges\": edges}\n\ndef print_graph_data(graph_data: Dict[str, Any]):\n    \"\"\"Prints graph data in a format the frontend can understand.\"\"\"\n    print(f'__GRAPH_DATA__:{json.dumps(graph_data, indent=2)}')\n    print(\"Graph data generated.\")\n" }
+      ],
+      "packages": ["pico-ioc"],
+      "solution": {}
+    },
+    {
+      "id": 6,
+      "title": "Protocols for Abstraction",
+      "description": "<h4>Programming to an Interface</h4><p>Hard-coding dependencies (like `Greeter` depending on `MessageFormatter`) is rigid. It's better to depend on an abstraction, not a concrete implementation. In Python, we can use `typing.Protocol` for this.</p><p>We've defined a `Formatter` protocol. Your task is to update `Greeter` in `app.py` to depend on the `Formatter` protocol instead of the concrete `EnglishFormatter` class.</p><p>`pico-ioc` is smart enough to find the class that implements the protocol and inject it.</p>",
+      "files": [
+        { "name": "app.py", "content": "from pico_ioc import component\nfrom typing import Protocol\n\nclass Formatter(Protocol):\n    def format(self, name: str) -> str:\n        ...\n\n@component\nclass EnglishFormatter: # Implements the Formatter protocol implicitly\n    def format(self, name: str) -> str:\n        return f\"Hello, {name}!\"\n\n@component\nclass Greeter:\n    # 👈 Change this to depend on the Formatter protocol\n    def __init__(self, formatter: EnglishFormatter):\n        self._formatter = formatter\n\n    def greet(self, name: str) -> str:\n        return self._formatter.format(name)\n" },
+        { "name": "main.py", "content": "import pico_ioc as pico\nimport app\n\npico.init(modules=[app])\ngreeter = pico.get(app.Greeter)\nprint(greeter.greet(\"Protocols\"))\n" }
+      ],
+      "packages": ["pico-ioc"],
+      "solution": {
+        "app.py": "from pico_ioc import component\nfrom typing import Protocol\n\nclass Formatter(Protocol):\n    def format(self, name: str) -> str:\n        ...\n\n@component\nclass EnglishFormatter: # Implements the Formatter protocol implicitly\n    def format(self, name: str) -> str:\n        return f\"Hello, {name}!\"\n\n@component\nclass Greeter:\n    # 👈 Change this to depend on the Formatter protocol\n    def __init__(self, formatter: Formatter):\n        self._formatter = formatter\n\n    def greet(self, name: str) -> str:\n        return self._formatter.format(name)\n"
+      }
+    },
+    {
+      "id": 7,
+      "title": "Runtime Checkable Protocols",
+      "description": "<h4>The `runtime_checkable` Decorator</h4><p>We are getting a `ProviderNotFoundError` because `pico-ioc` is trying to build `UserService` and needs to find a component that implements the `Database` protocol. While `RealDatabase` looks like a valid implementation to us, `pico-ioc` needs to be sure.</p><p>Under the hood, it tries to verify this using Python's built-in `issubclass(RealDatabase, Database)`. However, by default, checking `issubclass` against a `Protocol` raises a `TypeError`. The dependency injection framework catches this and reports that it couldn't find a provider.</p><p>To fix this, we need to make the protocol explicitly checkable at runtime. Your task is to add the `@runtime_checkable` decorator from the `typing` module to the `Database` protocol in `app.py`.</p>",
+      "files": [
+        {
+          "name": "app.py",
+          "content": "from typing import Protocol, runtime_checkable\nfrom pico_ioc import component\n\n# 👈 Add the @runtime_checkable decorator\nclass Database(Protocol):\n    def get_user(self, user_id: int) -> str:\n        ...\n\n@component(scope=\"prototype\")\nclass RealDatabase:\n    def get_user(self, user_id: int) -> str:\n        print(f\"(DATABASE) Fetching user {user_id}\")\n        return f\"User {user_id}\"\n\n@component\nclass UserService:\n    def __init__(self, db: Database):\n        self._db = db\n\n    def fetch_user(self, user_id: int) -> str:\n        return self._db.get_user(user_id)\n"
+        },
+        {
+          "name": "main.py",
+          "content": "import pico_ioc as pico\nimport app\n\n# This will eagerly create all singleton components on startup\npico.init(modules=[app])\n\n# We get the UserService which depends on Database\nuser_service = pico.get(app.UserService)\nprint(user_service.fetch_user(123))\n"
+        }
+      ],
+      "packages": ["pico-ioc"],
+      "solution": {
+        "app.py": "from typing import Protocol, runtime_checkable\nfrom pico_ioc import component\n\n@runtime_checkable\nclass Database(Protocol):\n    def get_user(self, user_id: int) -> str:\n        ...\n\n@component(scope=\"prototype\")\nclass RealDatabase:\n    def get_user(self, user_id: int) -> str:\n        print(f\"(DATABASE) Fetching user {user_id}\")\n        return f\"User {user_id}\"\n\n@component\nclass UserService:\n    def __init__(self, db: Database):\n        self._db = db\n\n    def fetch_user(self, user_id: int) -> str:\n        return self._db.get_user(user_id)\n"
+      }
+    },
+    {
+      "id": 8,
+      "title": "The `provides` Argument",
+      "description": "<h4>Explicitly Linking Implementations</h4><p>In the previous level, we used `@runtime_checkable` to link an implementation to a protocol. That works, but it's a Python typing feature. `pico-ioc` provides its own, more direct way: the `provides` argument in the `@component` decorator.</p><p>This is often a cleaner approach as it keeps DI configuration within the DI framework. We've removed `@runtime_checkable`, so you'll see a `ProviderNotFoundError` again.</p><p>Your task is to fix this error by modifying the `@component` decorator for `RealDatabase`. Tell `pico-ioc` that it `provides` the `Database` protocol. After fixing the code, the dependency graph will appear in the 'Graph' tab.</p>",
+      "files": [
+        {
+          "name": "app.py",
+          "content": "from typing import Protocol\nfrom pico_ioc import component\n\n# This protocol isn't runtime checkable, so pico-ioc can't\n# automatically link RealDatabase to it.\nclass Database(Protocol):\n    def get_user(self, user_id: int) -> str:\n        ...\n\n# 👈 Add provides=Database to the decorator to fix the error.\n@component(scope=\"prototype\")\nclass RealDatabase:\n    def get_user(self, user_id: int) -> str:\n        print(f\"(DATABASE) Fetching user {user_id}\")\n        return f\"User {user_id}\"\n\n@component\nclass UserService:\n    def __init__(self, db: Database):\n        self._db = db\n\n    def fetch_user(self, user_id: int) -> str:\n        return self._db.get_user(user_id)\n"
+        },
+        {
+          "name": "main.py",
+          "content": "import app\nfrom pico_ioc import init\nfrom graph_utils import generate_graph_data, print_graph_data\n\n# Configure pico-ioc to scan the 'app' module\ncontainer = init(modules=[app])\n\n# We get the UserService which depends on Database\nuser_service = container.get(app.UserService)\nprint(user_service.fetch_user(456))\nprint(\"-\" * 20)\nprint(\"Generating graph...\")\n\n# Generate and print the dependency graph data\ngraph_data = generate_graph_data(container)\nprint_graph_data(graph_data)\n"
+        },
+        { "name": "graph_utils.py", "content": "import json\nfrom pico_ioc import PicoContainer\nfrom pico_ioc.factory import ProviderMetadata\nfrom typing import Dict, Any\n\ndef get_node_details(key: Any, metadata: ProviderMetadata) -> Dict[str, Any]:\n    \"\"\"Helper function to extract serializable node data.\"\"\"\n    try:\n        name = getattr(key, \"__name__\", str(key))\n        module = getattr(key, \"__module__\", None)\n    except Exception:\n        name = str(key)\n        module = None\n\n    if module is None:\n        cls = metadata.concrete_class or metadata.factory_class\n        if cls:\n            module = getattr(cls, \"__module__\", None)\n    \n    return {\n        \"id\": name,\n        \"name\": name,\n        \"scope\": metadata.scope,\n        \"is_protocol\": getattr(key, \"_is_protocol\", False),\n        \"module\": module or \"unknown\"\n    }\n\ndef generate_graph_data(container: PicoContainer) -> Dict[str, Any]:\n    \"\"\"Generates a dependency graph from a pico-ioc container.\"\"\"\n    edge_map = container.build_resolution_graph()\n    all_metadata = container._locator._metadata\n    key_to_node_data = {}\n\n    nodes = []\n    valid_node_ids = set()\n\n    for key, md in all_metadata.items():\n        node_data = get_node_details(key, md)\n        key_to_node_data[key] = node_data\n        if not node_data[\"module\"].startswith(\"pico_ioc\"):\n            nodes.append(node_data)\n            valid_node_ids.add(node_data[\"id\"])\n\n    edges = []\n    for parent_key, child_keys in edge_map.items():\n        parent_node_data = key_to_node_data.get(parent_key)\n        if not parent_node_data or parent_node_data[\"id\"] not in valid_node_ids:\n            continue\n        for child_key in child_keys:\n            child_node_data = key_to_node_data.get(child_key)\n            if not child_node_data or child_node_data[\"id\"] not in valid_node_ids:\n                continue\n            edges.append({\"from\": parent_node_data[\"id\"], \"to\": child_node_data[\"id\"]})\n\n    return {\"nodes\": nodes, \"edges\": edges}\n\ndef print_graph_data(graph_data: Dict[str, Any]):\n    \"\"\"Prints graph data in a format the frontend can understand.\"\"\"\n    print(f'__GRAPH_DATA__:{json.dumps(graph_data, indent=2)}')\n    print(\"Graph data generated.\")\n" }
+      ],
+      "packages": ["pico-ioc"],
+      "solution": {
+        "app.py": "from typing import Protocol\nfrom pico_ioc import component\n\nclass Database(Protocol):\n    def get_user(self, user_id: int) -> str:\n        ...\n\n@component(provides=Database, scope=\"prototype\")\nclass RealDatabase:\n    def get_user(self, user_id: int) -> str:\n        print(f\"(DATABASE) Fetching user {user_id}\")\n        return f\"User {user_id}\"\n\n@component\nclass UserService:\n    def __init__(self, db: Database):\n        self._db = db\n\n    def fetch_user(self, user_id: int) -> str:\n        return self._db.get_user(user_id)\n"
+      }
+    }
+  ]
+}
