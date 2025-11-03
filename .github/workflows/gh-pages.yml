@@ -1,3 +1,4 @@
+# .github/workflows/gh-pages.yml
 name: Deploy Vite React to GitHub Pages
 
 on:
@@ -23,15 +24,14 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-          cache: 'npm'
 
-      - name: Install deps
-        run: npm ci
+      - name: Install deps (no lockfile)
+        run: npm install --no-audit --no-fund
 
       - name: Build with dynamic base
         run: |
           REPO_NAME="${{ github.event.repository.name }}"
-          vite build --base="/${REPO_NAME}/"
+          npx vite build --base="/${REPO_NAME}/"
           cp dist/index.html dist/404.html
 
       - name: Upload artifact
