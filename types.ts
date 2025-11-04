@@ -7,6 +7,7 @@ export interface Level {
   id: number;
   title: string;
   description: string;
+  type: 'lab' | 'doc' | 'cover' | 'toc';
   files: LevelFile[];
   packages: string[];
   hints?: string[];

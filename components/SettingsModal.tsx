@@ -81,18 +81,20 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, onLoadCo
           {presets.length > 0 && (
             <div>
               <h3 className="text-sm font-medium text-slate-300 mb-2">
-                Or select a preset
+                Or select a preset course
               </h3>
               <div className="space-y-2">
                 {presets.map((preset) => (
                   <button
                     key={preset.name}
                     onClick={() => handlePresetClick(preset.url)}
-                    disabled={isLoading}
+                    disabled={isLoading || !preset.url}
                     className="w-full text-left p-3 bg-slate-700/50 rounded-md hover:bg-slate-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    <p className="font-semibold text-cyan-400">{preset.name}</p>
-                    <p className="text-xs text-slate-400">{preset.url}</p>
+                    <p className={`font-semibold ${!preset.url ? 'text-slate-400' : 'text-cyan-400'}`}>{preset.name}</p>
+                    {preset.url && (
+                        <p className="text-xs text-slate-400">{preset.url}</p>
+                    )}
                   </button>
                 ))}
               </div>

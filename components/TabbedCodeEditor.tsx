@@ -47,7 +47,7 @@ const TabbedCodeEditor: React.FC<TabbedCodeEditorProps> = ({ files, onFilesChang
   const activeFile = files.find(f => f.name === activeTabId);
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full bg-slate-800/50 rounded-lg border border-slate-700 overflow-hidden">
       <div className="flex-shrink-0 flex items-center border-b border-slate-700 bg-slate-800/25">
         {files.map((file) => (
           <button
@@ -89,7 +89,7 @@ const TabbedCodeEditor: React.FC<TabbedCodeEditorProps> = ({ files, onFilesChang
             isReadOnly={isReadOnly}
           />
         ) : (
-          <div className="h-full bg-[#0d1117] flex items-center justify-center text-slate-500">
+          <div className="h-full flex items-center justify-center text-slate-500">
             Select a file to view its content.
           </div>
         )}

@@ -11,16 +11,22 @@ declare global {
 
 export const usePyodide = () => {
   const [pyodide, setPyodide] = useState<any>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false); // Start as false, init is now on-demand
   const [output, setOutput] = useState('');
   const [graphData, setGraphData] = useState<any>(null);
   const [isExecuting, setIsExecuting] = useState(false);
   const [isInstalling, setIsInstalling] = useState(false);
   
   const installedPackagesRef = useRef<Set<string>>(new Set());
-
-  useEffect(() => {
-    const initializePyodide = async () => {
+  const isInitializingRef = useRef(false);
+  
+  const initPyodide = async () => {
+      // Prevent re-initialization if already loaded, loading, or an init call is in progress
+      if (pyodide || isLoading || isInitializingRef.current) {
+        return;
+      }
+      isInitializingRef.current = true;
+      setIsLoading(true);
       try {
         const pyodideInstance = await window.loadPyodide();
         
@@ -63,11 +69,10 @@ export const usePyodide = () => {
         console.error("Failed to initialize Pyodide:", error);
         setOutput("Failed to initialize Pyodide. See console for details.");
       } finally {
+        isInitializingRef.current = false;
         setIsLoading(false);
       }
-    };
-    initializePyodide();
-  }, []);
+  };
 
   const installPackages = async (packages: string[]) => {
     if (!pyodide) return;
@@ -76,16 +81,16 @@ export const usePyodide = () => {
     if (newPackages.length === 0) return;
 
     setIsInstalling(true);
-    setOutput(`Installing packages: ${newPackages.join(', ')}...`);
+    setOutput(prev => prev + `> Installing packages: ${newPackages.join(', ')}...\n`);
     
     try {
       const micropip = pyodide.pyimport('micropip');
       await micropip.install(newPackages);
       newPackages.forEach(p => installedPackagesRef.current.add(p));
-      setOutput(prev => prev + `\nInstallation complete.`);
-    } catch (error) {
+      setOutput(prev => prev + `\n> Installation complete.\n`);
+    } catch (error: any) {
       console.error("Failed to install packages:", error);
-      setOutput(prev => prev + `\nError installing packages. See console for details.`);
+      setOutput(prev => prev + `\n> Error installing packages: ${error.message}\n`);
     } finally {
       setIsInstalling(false);
     }
@@ -95,7 +100,7 @@ export const usePyodide = () => {
     if (!pyodide) return false;
     
     setIsExecuting(true);
-    setOutput('Executing code...');
+    setOutput('> Executing code...\n');
     setGraphData(null); // Clear graph on new run
     
     try {
@@ -116,18 +121,18 @@ export const usePyodide = () => {
       const mainFile = files.find(f => f.name === 'main.py');
 
       if (testFile) {
-        setOutput(prev => prev + `\nRunning tests in ${testFile.name}...`);
+        setOutput(prev => prev + `\n> Running tests in ${testFile.name}...\n`);
         const pytest = pyodide.pyimport('pytest');
         const pytestArgs = pyodide.toPy(['-v', testFile.name]);
         const exitCode = await pytest.main(pytestArgs, null);
         return exitCode === 0;
       } else if (mainFile) {
-        setOutput(prev => prev + `\nRunning ${mainFile.name}...\n`);
+        setOutput(prev => prev + `\n> Running ${mainFile.name}...\n\n`);
         const mainContent = pyodide.FS.readFile(mainFile.name, { encoding: 'utf8' });
         await pyodide.runPythonAsync(mainContent);
         return true;
       } else {
-        setOutput('No entrypoint found (e.g., main.py or test_*.py)');
+        setOutput(prev => prev + 'No entrypoint found (e.g., main.py or test_*.py)');
         return false;
       }
       
@@ -146,6 +151,7 @@ export const usePyodide = () => {
   };
 
   return { 
+    initPyodide,
     isLoading, 
     isExecuting,
     isInstalling,

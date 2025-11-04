@@ -12,7 +12,7 @@ interface CodeEditorProps {
 
 const CodeEditor: React.FC<CodeEditorProps> = ({ value, onChange, isReadOnly = false }) => {
   return (
-    <div className="h-full bg-[#0d1117] rounded-lg overflow-hidden border border-slate-700">
+    <div className="h-full overflow-hidden">
       <CodeMirror
         value={value}
         height="100%"

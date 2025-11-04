@@ -8,6 +8,7 @@ import ReactFlow, {
   useEdgesState,
   Handle,
   Position,
+  MarkerType,
 } from 'reactflow';
 
 interface GraphData {
@@ -150,7 +151,8 @@ const GraphVisualizer: React.FC<GraphVisualizerProps> = ({ data }) => {
       target: edge.to,
       animated: true,
       style: { stroke: '#64748b', strokeWidth: 1.5 },
-      markerEnd: { type: 'arrowclosed', color: '#64748b' },
+      // FIX: Use MarkerType enum for type safety instead of a string literal.
+      markerEnd: { type: MarkerType.ArrowClosed, color: '#64748b' },
     }));
 
     setNodes(positionedNodes);
@@ -159,14 +161,14 @@ const GraphVisualizer: React.FC<GraphVisualizerProps> = ({ data }) => {
 
   if (!data) {
     return (
-      <div className="h-full w-full p-4 overflow-auto bg-[#0d1117] flex items-center justify-center rounded-b-lg">
+      <div className="h-full w-full p-4 overflow-auto flex items-center justify-center">
         <p className="text-slate-500">No graph data to display.</p>
       </div>
     );
   }
 
   return (
-    <div className="h-full w-full bg-[#0d1117] rounded-b-lg" key={JSON.stringify(data)}>
+    <div className="h-full w-full" key={JSON.stringify(data)}>
       <ReactFlow
         nodes={nodes}
         edges={edges}

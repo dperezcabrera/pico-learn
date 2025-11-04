@@ -2,18 +2,37 @@ import React, { useState, useEffect } from 'react';
 import { Level } from '../types';
 import { LightbulbIcon, KeyIcon } from './icons';
 
+declare global {
+  interface Window {
+    hljs?: {
+      highlightAll: () => void;
+    };
+  }
+}
+
 interface InstructionsPanelProps {
   level: Level;
   onShowSolution: () => void;
+  isDocMode?: boolean;
 }
 
-const InstructionsPanel: React.FC<InstructionsPanelProps> = ({ level, onShowSolution }) => {
+const InstructionsPanel: React.FC<InstructionsPanelProps> = ({ level, onShowSolution, isDocMode = false }) => {
   const [shownHints, setShownHints] = useState<string[]>([]);
 
   // Reset hints when level changes
   useEffect(() => {
     setShownHints([]);
   }, [level.id]);
+  
+  // Trigger syntax highlighting for doc pages
+  useEffect(() => {
+    if (isDocMode && window.hljs) {
+      // Use a timeout to ensure the DOM has been updated by React
+      setTimeout(() => {
+        window.hljs?.highlightAll();
+      }, 0);
+    }
+  }, [level.description, isDocMode]);
 
   const handleShowHint = () => {
     if (level.hints && shownHints.length < level.hints.length) {
@@ -21,15 +40,15 @@ const InstructionsPanel: React.FC<InstructionsPanelProps> = ({ level, onShowSolu
     }
   };
 
-  const hasHelpers = level.hints?.length || level.solution;
+  const hasHelpers = !isDocMode && (level.hints?.length || level.solution);
   const nextHintIndex = shownHints.length;
   const allHintsShown = level.hints && nextHintIndex === level.hints.length;
 
   return (
     <div className="flex flex-col flex-grow bg-slate-800/50 rounded-lg border border-slate-700 overflow-hidden">
-      <div className="flex-grow p-4 overflow-y-auto">
+      <div className="flex-grow p-4 lg:p-6 overflow-y-auto">
         <div 
-          className="prose prose-sm prose-invert max-w-none text-slate-300 [&_h4]:text-slate-100 [&_h4]:font-semibold [&_h4]:mb-3 [&_p]:mb-2 [&_code]:bg-slate-700/50 [&_code]:rounded [&_code]:px-1 [&_code]:py-0.5 [&_code]:font-mono"
+          className={`prose ${isDocMode ? 'prose-base lg:prose-lg' : 'prose-sm'} prose-invert max-w-none text-slate-300 [&_h4]:text-slate-100 [&_h4]:font-semibold [&_h4]:mb-4 [&_p]:mb-6 [&_img]:rounded-lg [&_img]:shadow-md [&_img]:my-6 [&_pre]:bg-[#0d1117] [&_pre]:border [&_pre]:border-slate-700 [&_pre]:rounded-lg [&_pre]:p-4 [&_pre]:my-6 [&_pre_code]:bg-transparent [&_code:not(pre_>_code)]:text-amber-400 [&_code:not(pre_>_code)]:font-semibold [&_code:not(pre_>_code)]:bg-transparent [&_code:not(pre_>_code)]:p-0`}
           dangerouslySetInnerHTML={{ __html: level.description }} 
         />
       </div>
