@@ -1,0 +1,113 @@
+{
+  "title": "Learn pico-celery — Background Tasks",
+  "date": "2026-03-28",
+  "levels": [
+    {
+      "id": 0,
+      "type": "cover",
+      "title": "Learn pico-celery",
+      "description": "Background task processing with dependency injection.",
+      "files": [],
+      "packages": []
+    },
+    {
+      "id": 100,
+      "type": "toc",
+      "title": "Table of Contents",
+      "description": "Select a level to begin.",
+      "files": [],
+      "packages": []
+    },
+    {
+      "id": 1,
+      "type": "doc",
+      "title": "Worker vs Client Architecture",
+      "description": "<h4>How Celery Works</h4><p>Celery splits work into two roles: <strong>clients</strong> dispatch tasks, and <strong>workers</strong> execute them. A message broker (Redis or RabbitMQ) sits in between, and results are stored in a result backend.</p><pre><code>Client  ──&gt;  Broker  ──&gt;  Worker  ──&gt;  Result Backend</code></pre><p>The client calls <code>send_task(\"add\", args=[2, 3])</code>. The broker queues the message. A worker picks it up, runs the function, and stores the result.</p><h4>What pico-celery Adds</h4><p><code>pico-celery</code> integrates Celery with <code>pico-ioc</code> dependency injection. Instead of plain functions, your tasks live inside component classes with full DI support.</p><ul><li><code>@task</code> marks async methods on worker-side component classes.</li><li><code>@send_task</code> declares client-side stubs that dispatch tasks by name.</li><li>The <code>@celery</code> class decorator marks a client class.</li></ul><p>Workers get their dependencies injected just like any other pico-ioc component. Clients never execute task logic &mdash; they only send messages to the broker.</p>",
+      "files": [],
+      "packages": []
+    },
+    {
+      "id": 2,
+      "type": "lab",
+      "title": "Defining Tasks with @task",
+      "description": "<h4>Adding Task Decorators</h4><p>Worker-side task classes use the <code>@task</code> decorator on their async methods. Each <code>@task</code> needs a <code>name</code> argument that uniquely identifies the task across the system.</p><p>The <code>MathTasks</code> class below is already a <code>@component</code>, but its methods are missing <code>@task</code> decorators. Add them so the metadata is registered correctly.</p><p>The test verifies that each method has <code>_pico_celery_method_meta</code> with the correct task name.</p>",
+      "files": [
+        {
+          "name": "tasks.py",
+          "content": "from pico_ioc import component\nfrom pico_celery import task\n\n@component\nclass MathTasks:\n    # 👈 Add @task(name=\"math.add\")\n    async def add(self, x: int, y: int) -> int:\n        return x + y\n\n    # 👈 Add @task(name=\"math.multiply\")\n    async def multiply(self, x: int, y: int) -> int:\n        return x * y\n"
+        },
+        {
+          "name": "test_tasks.py",
+          "content": "from tasks import MathTasks\n\ndef test_add_has_task_meta():\n    meta = getattr(MathTasks.add, '_pico_celery_method_meta', None)\n    assert meta is not None, \"add() is missing @task decorator\"\n    assert meta.name == \"math.add\"\n\ndef test_multiply_has_task_meta():\n    meta = getattr(MathTasks.multiply, '_pico_celery_method_meta', None)\n    assert meta is not None, \"multiply() is missing @task decorator\"\n    assert meta.name == \"math.multiply\"\n"
+        }
+      ],
+      "packages": ["pico-ioc", "pico-celery", "pytest"],
+      "hints": [
+        "Import `task` from `pico_celery` — it is already imported for you.",
+        "Place `@task(name=\"math.add\")` directly above the `async def add(...)` method.",
+        "Do the same for `multiply` with `@task(name=\"math.multiply\")`."
+      ],
+      "solution": {
+        "tasks.py": "from pico_ioc import component\nfrom pico_celery import task\n\n@component\nclass MathTasks:\n    @task(name=\"math.add\")\n    async def add(self, x: int, y: int) -> int:\n        return x + y\n\n    @task(name=\"math.multiply\")\n    async def multiply(self, x: int, y: int) -> int:\n        return x * y\n"
+      }
+    },
+    {
+      "id": 3,
+      "type": "lab",
+      "title": "Client Declarations with @send_task",
+      "description": "<h4>Building a Task Client</h4><p>Client classes declare which tasks they can dispatch using <code>@send_task</code>. The class itself must be decorated with <code>@celery</code> so pico-celery knows it is a client.</p><p>Method bodies in a client are never executed &mdash; they only exist to declare the signature. Use <code>pass</code> as the body.</p><p>Add the <code>@celery</code> class decorator and <code>@send_task</code> method decorators below.</p>",
+      "files": [
+        {
+          "name": "client.py",
+          "content": "from pico_celery import celery, send_task\n\n# 👈 Add @celery class decorator\nclass MathClient:\n    # 👈 Add @send_task(name=\"math.add\")\n    async def add(self, x: int, y: int) -> int:\n        pass\n\n    # 👈 Add @send_task(name=\"math.multiply\")\n    async def multiply(self, x: int, y: int) -> int:\n        pass\n"
+        },
+        {
+          "name": "test_client.py",
+          "content": "from client import MathClient\n\ndef test_class_has_celery_decorator():\n    assert getattr(MathClient, '_pico_celery_meta', None) is not None, \\\n        \"MathClient is missing @celery class decorator\"\n\ndef test_add_has_send_task_meta():\n    meta = getattr(MathClient.add, '_pico_celery_method_meta', None)\n    assert meta is not None, \"add() is missing @send_task decorator\"\n    assert meta.name == \"math.add\"\n\ndef test_multiply_has_send_task_meta():\n    meta = getattr(MathClient.multiply, '_pico_celery_method_meta', None)\n    assert meta is not None, \"multiply() is missing @send_task decorator\"\n    assert meta.name == \"math.multiply\"\n"
+        }
+      ],
+      "packages": ["pico-ioc", "pico-celery", "pytest"],
+      "hints": [
+        "The `@celery` decorator goes on the class itself, above `class MathClient:`.",
+        "`@send_task(name=\"math.add\")` goes above the `async def add(...)` method.",
+        "Repeat for `multiply` with `@send_task(name=\"math.multiply\")`. The method bodies stay as `pass`."
+      ],
+      "solution": {
+        "client.py": "from pico_celery import celery, send_task\n\n@celery\nclass MathClient:\n    @send_task(name=\"math.add\")\n    async def add(self, x: int, y: int) -> int:\n        pass\n\n    @send_task(name=\"math.multiply\")\n    async def multiply(self, x: int, y: int) -> int:\n        pass\n"
+      }
+    },
+    {
+      "id": 4,
+      "type": "doc",
+      "title": "Configuration and Deployment",
+      "description": "<h4>CelerySettings</h4><p><code>pico-celery</code> reads its configuration from <code>CelerySettings</code>, which you can provide via environment variables or a settings file:</p><pre><code class='language-python'>from pico_celery import CelerySettings\n\n# These are the key fields:\n# broker_url = \"redis://localhost:6379/0\"\n# backend_url = \"redis://localhost:6379/1\"</code></pre><h4>Docker Compose Example</h4><p>A typical deployment uses Redis as both broker and backend, with separate containers for the worker and client:</p><pre><code class='language-yaml'>services:\n  redis:\n    image: redis:7-alpine\n    ports:\n      - \"6379:6379\"\n\n  worker:\n    build: .\n    command: pico-celery worker\n    environment:\n      - CELERY_BROKER_URL=redis://redis:6379/0\n      - CELERY_BACKEND_URL=redis://redis:6379/1\n    depends_on:\n      - redis\n\n  client:\n    build: .\n    command: python main.py\n    environment:\n      - CELERY_BROKER_URL=redis://redis:6379/0\n      - CELERY_BACKEND_URL=redis://redis:6379/1\n    depends_on:\n      - redis</code></pre><h4>Auto-Discovery</h4><p>When you use <code>pico-boot</code>, it automatically discovers <code>pico-celery</code> as a plugin and registers all <code>@task</code> and <code>@celery</code> components. For manual setup, pass your task modules to <code>pico_ioc.init()</code> as usual.</p>",
+      "files": [],
+      "packages": []
+    },
+    {
+      "id": 5,
+      "type": "lab",
+      "title": "Task with Dependency Injection",
+      "description": "<h4>Injecting Services into Tasks</h4><p><code>pico-celery</code> tasks are regular <code>pico-ioc</code> components, so they get full dependency injection. The <code>EmailTasks</code> class below depends on a <code>TemplateService</code> via its constructor.</p><p>However, <code>TemplateService</code> is missing its <code>@component</code> decorator, so pico-ioc cannot inject it. Add the decorator and verify the DI wiring works.</p>",
+      "files": [
+        {
+          "name": "tasks.py",
+          "content": "from pico_ioc import component\nfrom pico_celery import task\n\n# 👈 Add @component decorator\nclass TemplateService:\n    def render(self, template_name: str, **kwargs) -> str:\n        return f\"Rendered {template_name} with {kwargs}\"\n\n@component\nclass EmailTasks:\n    def __init__(self, template_service: TemplateService):\n        self.template_service = template_service\n\n    @task(name=\"email.send_welcome\")\n    async def send_welcome(self, user_email: str) -> str:\n        body = self.template_service.render(\"welcome\", email=user_email)\n        return f\"Sent to {user_email}: {body}\"\n"
+        },
+        {
+          "name": "test_tasks.py",
+          "content": "import pico_ioc as pico\nimport tasks\n\ndef test_email_tasks_has_template_service():\n    pico.init(modules=[tasks])\n    email_tasks = pico.get(tasks.EmailTasks)\n    assert email_tasks.template_service is not None, \\\n        \"TemplateService was not injected\"\n    assert isinstance(email_tasks.template_service, tasks.TemplateService)\n\ndef test_template_service_renders():\n    pico.init(modules=[tasks])\n    ts = pico.get(tasks.TemplateService)\n    result = ts.render(\"welcome\", email=\"test@example.com\")\n    assert \"welcome\" in result\n    assert \"test@example.com\" in result\n"
+        }
+      ],
+      "packages": ["pico-ioc", "pico-celery", "pytest"],
+      "hints": [
+        "The `TemplateService` class needs to be registered with pico-ioc so it can be injected.",
+        "Add `@component` from `pico_ioc` above the `class TemplateService:` line.",
+        "Once `TemplateService` is a component, pico-ioc will automatically inject it into `EmailTasks` via the constructor."
+      ],
+      "solution": {
+        "tasks.py": "from pico_ioc import component\nfrom pico_celery import task\n\n@component\nclass TemplateService:\n    def render(self, template_name: str, **kwargs) -> str:\n        return f\"Rendered {template_name} with {kwargs}\"\n\n@component\nclass EmailTasks:\n    def __init__(self, template_service: TemplateService):\n        self.template_service = template_service\n\n    @task(name=\"email.send_welcome\")\n    async def send_welcome(self, user_email: str) -> str:\n        body = self.template_service.render(\"welcome\", email=user_email)\n        return f\"Sent to {user_email}: {body}\"\n"
+      }
+    }
+  ]
+}

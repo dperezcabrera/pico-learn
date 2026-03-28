@@ -1,0 +1,118 @@
+{
+  "title": "Learn pico-sqlalchemy — Database Repositories",
+  "date": "2026-03-28",
+  "levels": [
+    {
+      "id": 0,
+      "type": "cover",
+      "title": "Learn pico-sqlalchemy",
+      "description": "Declarative repositories, transactions, and queries.",
+      "files": [],
+      "packages": []
+    },
+    {
+      "id": 100,
+      "type": "toc",
+      "title": "Table of Contents",
+      "description": "Select a level to begin.",
+      "files": [],
+      "packages": []
+    },
+    {
+      "id": 1,
+      "type": "doc",
+      "title": "The Repository Pattern",
+      "description": "<h4>Separating Data Access from Business Logic</h4><p>The <strong>repository pattern</strong> places all database operations behind a clean interface. Your services never write SQL directly; they call repository methods like <code>find_by_id()</code> or <code>save()</code>.</p><h4>Why?</h4><ul><li><strong>Testability</strong> &mdash; swap the real repository for a mock in tests.</li><li><strong>Single Responsibility</strong> &mdash; services hold business rules, repositories hold data access.</li><li><strong>Consistency</strong> &mdash; transactions and error handling live in one place.</li></ul><h4>Architecture Layers</h4><pre><code>Controller / API\n    \u2193\nService        (@transactional)\n    \u2193\nRepository     (@repository, @query)\n    \u2193\nDatabase       (SQLAlchemy + async session)</code></pre><h4>How pico-sqlalchemy Helps</h4><p>Instead of writing boilerplate session management and query code, you use decorators:</p><pre><code class='language-python'>from pico_sqlalchemy import repository, query, transactional, AppBase, Mapped, mapped_column\n\n@repository(entity=Product)\nclass ProductRepository:\n    @query(expr=\"id = :id\", unique=True)\n    async def find_by_id(self, id: int) -> Product | None:\n        ...  # body is never executed &mdash; the decorator builds the query\n\n@component\nclass ProductService:\n    def __init__(self, repo: ProductRepository):\n        self._repo = repo\n\n    @transactional(read_only=True)\n    async def get_product(self, id: int) -> Product | None:\n        return await self._repo.find_by_id(id)</code></pre><p>In the following labs you will build each layer step by step.</p>",
+      "files": [],
+      "packages": []
+    },
+    {
+      "id": 2,
+      "type": "lab",
+      "title": "Defining Entities with AppBase",
+      "description": "<h4>SQLAlchemy 2.0 Entity Definitions</h4><p>Every database table is represented by an <strong>entity class</strong> that inherits from <code>AppBase</code>. Columns are declared with <code>Mapped[T]</code> type annotations and <code>mapped_column()</code>.</p><pre><code class='language-python'>from pico_sqlalchemy import AppBase, Mapped, mapped_column\nfrom sqlalchemy import String\n\nclass User(AppBase):\n    __tablename__ = \"users\"\n    id: Mapped[int] = mapped_column(primary_key=True)\n    name: Mapped[str] = mapped_column(String(100))</code></pre><p>The <code>Mapped[int]</code> annotation tells SQLAlchemy the column type. Without it, the column won't be recognised.</p><p class='mt-2'><strong>Task:</strong> Open <code>models.py</code>. The <code>Product</code> entity is missing its <code>Mapped</code> type annotations on the <code>name</code> and <code>price</code> columns. Add them so the test passes.</p>",
+      "files": [
+        { "name": "models.py", "content": "from pico_sqlalchemy import AppBase, Mapped, mapped_column\nfrom sqlalchemy import String\n\n\nclass Product(AppBase):\n    __tablename__ = \"products\"\n\n    id: Mapped[int] = mapped_column(primary_key=True)\n    # Fix: add Mapped[str] annotation\n    name = mapped_column(String(100))\n    # Fix: add Mapped[float] annotation\n    price = mapped_column()\n" },
+        { "name": "test_models.py", "content": "from models import Product\nfrom pico_sqlalchemy import AppBase\n\n\ndef test_product_inherits_appbase():\n    assert issubclass(Product, AppBase)\n\n\ndef test_product_has_tablename():\n    assert Product.__tablename__ == \"products\"\n\n\ndef test_product_columns_exist():\n    col_names = [c.name for c in Product.__table__.columns]\n    assert \"id\" in col_names\n    assert \"name\" in col_names\n    assert \"price\" in col_names\n\n\ndef test_column_annotations():\n    annotations = Product.__annotations__\n    assert \"name\" in annotations, \"name must have a Mapped type annotation\"\n    assert \"price\" in annotations, \"price must have a Mapped type annotation\"\n" }
+      ],
+      "packages": ["pico-ioc", "pico-sqlalchemy"],
+      "hints": [
+        "Each column needs a type annotation like `name: Mapped[str]` before the `= mapped_column(...)` part.",
+        "The `price` column stores a decimal number. Use `Mapped[float]` as the type annotation.",
+        "The final lines should look like `name: Mapped[str] = mapped_column(String(100))` and `price: Mapped[float] = mapped_column()`."
+      ],
+      "solution": {
+        "models.py": "from pico_sqlalchemy import AppBase, Mapped, mapped_column\nfrom sqlalchemy import String\n\n\nclass Product(AppBase):\n    __tablename__ = \"products\"\n\n    id: Mapped[int] = mapped_column(primary_key=True)\n    name: Mapped[str] = mapped_column(String(100))\n    price: Mapped[float] = mapped_column()\n"
+      }
+    },
+    {
+      "id": 3,
+      "type": "lab",
+      "title": "The @repository Decorator",
+      "description": "<h4>Turning a Class into a Repository</h4><p>The <code>@repository</code> decorator does three things:</p><ol><li>Stores metadata (including the <code>entity</code>) on the class.</li><li>Wraps every public async method with an implicit transaction.</li><li>Registers the class as a pico-ioc <code>@component</code>.</li></ol><pre><code class='language-python'>from pico_sqlalchemy import repository\n\n@repository(entity=User)\nclass UserRepository:\n    async def save(self, user: User) -> User:\n        ...</code></pre><p class='mt-2'><strong>Task:</strong> Open <code>repositories.py</code>. The <code>ProductRepository</code> class is missing the <code>@repository</code> decorator. Add <code>@repository(entity=Product)</code> so the test passes.</p>",
+      "files": [
+        { "name": "models.py", "content": "from pico_sqlalchemy import AppBase, Mapped, mapped_column\nfrom sqlalchemy import String\n\n\nclass Product(AppBase):\n    __tablename__ = \"products\"\n\n    id: Mapped[int] = mapped_column(primary_key=True)\n    name: Mapped[str] = mapped_column(String(100))\n    price: Mapped[float] = mapped_column()\n" },
+        { "name": "repositories.py", "content": "from pico_sqlalchemy import repository, get_session, SessionManager\nfrom models import Product\n\n\n# Add the @repository decorator with entity=Product\nclass ProductRepository:\n    def __init__(self, sm: SessionManager):\n        self._sm = sm\n\n    async def save(self, product: Product) -> Product:\n        session = get_session(self._sm)\n        session.add(product)\n        return product\n\n    async def delete(self, product: Product) -> None:\n        session = get_session(self._sm)\n        await session.delete(product)\n" },
+        { "name": "test_repositories.py", "content": "from pico_sqlalchemy.decorators import REPOSITORY_META\nfrom repositories import ProductRepository\nfrom models import Product\n\n\ndef test_repository_has_metadata():\n    meta = getattr(ProductRepository, REPOSITORY_META, None)\n    assert meta is not None, \"ProductRepository must have @repository metadata\"\n\n\ndef test_repository_entity_is_product():\n    meta = getattr(ProductRepository, REPOSITORY_META)\n    assert meta.get(\"entity\") is Product, \"@repository must specify entity=Product\"\n" }
+      ],
+      "packages": ["pico-ioc", "pico-sqlalchemy", "pytest"],
+      "hints": [
+        "Import `repository` from `pico_sqlalchemy` (already imported at the top of the file).",
+        "Place `@repository(entity=Product)` directly above the `class ProductRepository:` line.",
+        "The decorator both registers the component and stores metadata. No other changes needed."
+      ],
+      "solution": {
+        "repositories.py": "from pico_sqlalchemy import repository, get_session, SessionManager\nfrom models import Product\n\n\n@repository(entity=Product)\nclass ProductRepository:\n    def __init__(self, sm: SessionManager):\n        self._sm = sm\n\n    async def save(self, product: Product) -> Product:\n        session = get_session(self._sm)\n        session.add(product)\n        return product\n\n    async def delete(self, product: Product) -> None:\n        session = get_session(self._sm)\n        await session.delete(product)\n"
+      }
+    },
+    {
+      "id": 4,
+      "type": "lab",
+      "title": "Declarative @query",
+      "description": "<h4>Replacing Method Bodies with Queries</h4><p>The <code>@query</code> decorator replaces a method's body with an auto-generated SQL query. You provide a WHERE expression and the interceptor does the rest.</p><pre><code class='language-python'>@query(expr=\"email = :email\", unique=True)\nasync def find_by_email(self, email: str) -> User | None:\n    ...  # body is never executed</code></pre><p>Key options:</p><ul><li><code>expr</code> &mdash; a WHERE clause with <code>:param</code> placeholders.</li><li><code>unique=True</code> &mdash; return a single row (or <code>None</code>).</li><li><code>paged=True</code> &mdash; return a <code>Page</code> instead of a list.</li></ul><p class='mt-2'><strong>Task:</strong> Open <code>repositories.py</code>. Add <code>@query</code> decorators to <code>find_by_id</code> (with <code>unique=True</code>) and <code>find_all</code> (no unique). Check the method signatures for the correct <code>expr</code>.</p>",
+      "files": [
+        { "name": "models.py", "content": "from pico_sqlalchemy import AppBase, Mapped, mapped_column\nfrom sqlalchemy import String\n\n\nclass Product(AppBase):\n    __tablename__ = \"products\"\n\n    id: Mapped[int] = mapped_column(primary_key=True)\n    name: Mapped[str] = mapped_column(String(100))\n    price: Mapped[float] = mapped_column()\n" },
+        { "name": "repositories.py", "content": "from pico_sqlalchemy import repository, query\nfrom models import Product\nfrom typing import Optional\n\n\n@repository(entity=Product)\nclass ProductRepository:\n\n    # Add @query decorator: find one product by id\n    async def find_by_id(self, id: int) -> Optional[Product]:\n        ...\n\n    # Add @query decorator: find all products\n    async def find_all(self) -> list[Product]:\n        ...\n" },
+        { "name": "test_queries.py", "content": "from pico_sqlalchemy.decorators import QUERY_META\nfrom repositories import ProductRepository\n\n\ndef test_find_by_id_has_query_meta():\n    method = ProductRepository.find_by_id\n    meta = getattr(method, QUERY_META, None)\n    assert meta is not None, \"find_by_id must have @query metadata\"\n\n\ndef test_find_by_id_is_unique():\n    meta = getattr(ProductRepository.find_by_id, QUERY_META)\n    assert meta[\"unique\"] is True, \"find_by_id should use unique=True\"\n\n\ndef test_find_by_id_expr():\n    meta = getattr(ProductRepository.find_by_id, QUERY_META)\n    assert meta[\"expr\"] == \"id = :id\", \"find_by_id expr should be 'id = :id'\"\n\n\ndef test_find_all_has_query_meta():\n    method = ProductRepository.find_all\n    meta = getattr(method, QUERY_META, None)\n    assert meta is not None, \"find_all must have @query metadata\"\n\n\ndef test_find_all_is_not_unique():\n    meta = getattr(ProductRepository.find_all, QUERY_META)\n    assert meta[\"unique\"] is False, \"find_all should not use unique=True\"\n" }
+      ],
+      "packages": ["pico-ioc", "pico-sqlalchemy", "pytest"],
+      "hints": [
+        "The `@query` decorator goes above the method definition, just like any other decorator.",
+        "For `find_by_id`, the parameter is named `id`, so the expression is `\"id = :id\"`. Add `unique=True` since it returns one product.",
+        "For `find_all`, use an expression that matches everything. Try `expr=\"1 = 1\"` with no `unique` argument (it defaults to `False`)."
+      ],
+      "solution": {
+        "repositories.py": "from pico_sqlalchemy import repository, query\nfrom models import Product\nfrom typing import Optional\n\n\n@repository(entity=Product)\nclass ProductRepository:\n\n    @query(expr=\"id = :id\", unique=True)\n    async def find_by_id(self, id: int) -> Optional[Product]:\n        ...\n\n    @query(expr=\"1 = 1\")\n    async def find_all(self) -> list[Product]:\n        ...\n"
+      }
+    },
+    {
+      "id": 5,
+      "type": "lab",
+      "title": "@transactional in Services",
+      "description": "<h4>Declarative Transaction Management</h4><p>The <code>@transactional</code> decorator wraps a method in a database transaction. It supports several options:</p><pre><code class='language-python'>@transactional                        # read-write, REQUIRED propagation\n@transactional(read_only=True)        # read-only (no commit)\n@transactional(propagation=\"REQUIRES_NEW\")  # new transaction</code></pre><p>Use <code>read_only=True</code> on methods that only read data. This skips the commit step and signals your intent clearly.</p><p class='mt-2'><strong>Task:</strong> Open <code>services.py</code>. Add <code>@transactional</code> to:</p><ul><li><code>get_product</code> and <code>list_products</code> &mdash; use <code>read_only=True</code></li><li><code>create_product</code> &mdash; use the default (read-write)</li></ul>",
+      "files": [
+        { "name": "models.py", "content": "from pico_sqlalchemy import AppBase, Mapped, mapped_column\nfrom sqlalchemy import String\n\n\nclass Product(AppBase):\n    __tablename__ = \"products\"\n\n    id: Mapped[int] = mapped_column(primary_key=True)\n    name: Mapped[str] = mapped_column(String(100))\n    price: Mapped[float] = mapped_column()\n" },
+        { "name": "repositories.py", "content": "from pico_sqlalchemy import repository, query\nfrom models import Product\nfrom typing import Optional\n\n\n@repository(entity=Product)\nclass ProductRepository:\n\n    @query(expr=\"id = :id\", unique=True)\n    async def find_by_id(self, id: int) -> Optional[Product]:\n        ...\n\n    @query(expr=\"1 = 1\")\n    async def find_all(self) -> list[Product]:\n        ...\n" },
+        { "name": "services.py", "content": "from pico_ioc import component\nfrom pico_sqlalchemy import transactional\nfrom repositories import ProductRepository\nfrom models import Product\nfrom typing import Optional\n\n\n@component\nclass ProductService:\n    def __init__(self, repo: ProductRepository):\n        self._repo = repo\n\n    # Add @transactional(read_only=True)\n    async def get_product(self, id: int) -> Optional[Product]:\n        return await self._repo.find_by_id(id)\n\n    # Add @transactional(read_only=True)\n    async def list_products(self) -> list[Product]:\n        return await self._repo.find_all()\n\n    # Add @transactional (default read-write)\n    async def create_product(self, name: str, price: float) -> Product:\n        product = Product(name=name, price=price)\n        return await self._repo.save(product)\n" },
+        { "name": "test_services.py", "content": "from pico_sqlalchemy.decorators import TRANSACTIONAL_META\nfrom services import ProductService\n\n\ndef test_get_product_is_transactional():\n    meta = getattr(ProductService.get_product, TRANSACTIONAL_META, None)\n    assert meta is not None, \"get_product must have @transactional metadata\"\n\n\ndef test_get_product_is_read_only():\n    meta = getattr(ProductService.get_product, TRANSACTIONAL_META)\n    assert meta[\"read_only\"] is True, \"get_product should be read_only=True\"\n\n\ndef test_list_products_is_read_only():\n    meta = getattr(ProductService.list_products, TRANSACTIONAL_META)\n    assert meta is not None, \"list_products must have @transactional metadata\"\n    assert meta[\"read_only\"] is True, \"list_products should be read_only=True\"\n\n\ndef test_create_product_is_read_write():\n    meta = getattr(ProductService.create_product, TRANSACTIONAL_META)\n    assert meta is not None, \"create_product must have @transactional metadata\"\n    assert meta[\"read_only\"] is False, \"create_product should be read-write\"\n" }
+      ],
+      "packages": ["pico-ioc", "pico-sqlalchemy", "pytest"],
+      "hints": [
+        "Import `transactional` from `pico_sqlalchemy` (already imported at the top).",
+        "For read methods, use `@transactional(read_only=True)` above the method definition.",
+        "For `create_product`, use `@transactional` without arguments (defaults to read-write)."
+      ],
+      "solution": {
+        "services.py": "from pico_ioc import component\nfrom pico_sqlalchemy import transactional\nfrom repositories import ProductRepository\nfrom models import Product\nfrom typing import Optional\n\n\n@component\nclass ProductService:\n    def __init__(self, repo: ProductRepository):\n        self._repo = repo\n\n    @transactional(read_only=True)\n    async def get_product(self, id: int) -> Optional[Product]:\n        return await self._repo.find_by_id(id)\n\n    @transactional(read_only=True)\n    async def list_products(self) -> list[Product]:\n        return await self._repo.find_all()\n\n    @transactional\n    async def create_product(self, name: str, price: float) -> Product:\n        product = Product(name=name, price=price)\n        return await self._repo.save(product)\n"
+      }
+    },
+    {
+      "id": 6,
+      "type": "doc",
+      "title": "Pagination with PageRequest",
+      "description": "<h4>Paginating Query Results</h4><p>When a table has thousands of rows, returning them all at once is impractical. <code>pico-sqlalchemy</code> provides three types for pagination:</p><ul><li><code>PageRequest</code> &mdash; specifies which page to fetch and the page size.</li><li><code>Page[T]</code> &mdash; a frozen result containing the items and total count.</li><li><code>Sort</code> &mdash; specifies column ordering.</li></ul><h4>Creating a PageRequest</h4><pre><code class='language-python'>from pico_sqlalchemy import PageRequest, Sort\n\n# First page, 20 items, sorted by name ascending\nreq = PageRequest(page=0, size=20, sorts=[Sort(\"name\")])\n\n# Third page, 10 items, sorted by price descending\nreq2 = PageRequest(page=2, size=10, sorts=[Sort(\"price\", \"DESC\")])</code></pre><h4>Using @query with Pagination</h4><p>Add <code>paged=True</code> to the <code>@query</code> decorator and accept a <code>page: PageRequest</code> parameter:</p><pre><code class='language-python'>@repository(entity=Product)\nclass ProductRepository:\n\n    @query(expr=\"1 = 1\", paged=True)\n    async def find_all(self, page: PageRequest) -> Page[Product]:\n        ...  # body replaced by interceptor</code></pre><h4>Reading a Page Result</h4><pre><code class='language-python'>page = await repo.find_all(PageRequest(page=0, size=10))\n\nprint(page.content)          # list of Product objects\nprint(page.total_elements)   # total matching rows\nprint(page.total_pages)      # computed ceiling division\nprint(page.is_first)         # True if page 0\nprint(page.is_last)          # True if last page</code></pre><h4>Sorting Without Pagination</h4><p><code>Sort</code> can also be used independently with <code>@query</code> methods by passing it as a parameter. The interceptor applies <code>ORDER BY</code> clauses automatically.</p><p>Pagination keeps APIs responsive and memory usage predictable &mdash; always use it for list endpoints in production.</p>",
+      "files": [],
+      "packages": []
+    }
+  ]
+}
