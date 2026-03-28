@@ -198,9 +198,11 @@ export default function App() {
     }
     
     const navigator = (
-        <LevelNavigator 
+        <LevelNavigator
             currentLevelTitle={levelType === 'toc' ? currentLevel.title : `${currentLevel.id}. ${currentLevel.title}`}
             isCompleted={completedLevels.has(currentLevel.id)}
+            isLastLevel={isLastLevel}
+            onNext={handleNextLevel}
         />
     );
 
