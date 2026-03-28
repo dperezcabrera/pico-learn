@@ -1,0 +1,110 @@
+{
+  "title": "Learn pico-pydantic — Method Validation",
+  "date": "2026-03-28",
+  "levels": [
+    {
+      "id": 0,
+      "type": "cover",
+      "title": "Learn pico-pydantic",
+      "description": "Automatic argument validation with Pydantic models. Decorate any service method with <code>@validate</code> and let pico-pydantic coerce and check every call — no matter who the caller is.",
+      "files": [],
+      "packages": []
+    },
+    {
+      "id": 100,
+      "type": "toc",
+      "title": "Table of Contents",
+      "description": "Select a level to begin.",
+      "files": [],
+      "packages": []
+    },
+    {
+      "id": 1,
+      "type": "doc",
+      "title": "Why Validate at the Service Layer?",
+      "description": "<h4>HTTP Validation Is Not Enough</h4><p>Frameworks like FastAPI validate incoming HTTP requests beautifully. But your services are not only called from HTTP handlers. They can be invoked from:</p><ul class='list-disc ml-6 mt-2 space-y-1'><li>CLI scripts</li><li>Background workers (Celery, cron jobs)</li><li>Other services inside your own app</li><li>Unit and integration tests</li></ul><p class='mt-3'>If validation lives only in the HTTP layer, every other caller must duplicate that logic — or skip it entirely.</p><h4 class='mt-4'>Enter <code>@validate</code></h4><p><code>pico-pydantic</code> solves this by pushing validation into the service method itself. The <code>@validate</code> decorator inspects Pydantic-typed parameters and automatically coerces and validates arguments <em>before</em> the method body runs.</p><pre><code class='language-python'>from pico_pydantic import validate\nfrom pydantic import BaseModel\n\nclass ItemData(BaseModel):\n    name: str\n    price: float\n\nclass ItemService:\n    @validate\n    def add_item(self, data: ItemData) -> str:\n        return f\"Added {data.name} at ${data.price}\"</code></pre><p class='mt-3'>Now <code>add_item({\"name\": \"Widget\", \"price\": 9.99})</code> works — the plain dict is coerced into an <code>ItemData</code> model. And <code>add_item({\"price\": -1})</code> raises a <code>ValidationFailedError</code> with a clear message. The contract is enforced regardless of the caller.</p>",
+      "files": [],
+      "packages": []
+    },
+    {
+      "id": 2,
+      "type": "lab",
+      "title": "Your First @validate",
+      "description": "<h4>Auto-Coercion with <code>@validate</code></h4><p>In <code>services.py</code>, the <code>ItemService</code> has an <code>add_item</code> method that expects an <code>ItemData</code> model. Right now, passing a plain dict will fail because there is no automatic coercion.</p><p class='mt-2'>Your task: add the <code>@validate</code> decorator to <code>add_item</code> so that a raw dict is automatically converted into an <code>ItemData</code> instance before the method body runs.</p>",
+      "files": [
+        { "name": "schemas.py", "content": "from pydantic import BaseModel\n\nclass ItemData(BaseModel):\n    name: str\n    price: float\n" },
+        { "name": "services.py", "content": "from pico_ioc import component\nfrom pico_pydantic import validate\nfrom schemas import ItemData\n\n@component\nclass ItemService:\n    # 👈 Add the @validate decorator to this method\n    def add_item(self, data: ItemData) -> str:\n        return f\"Added {data.name} at ${data.price:.2f}\"\n" },
+        { "name": "main.py", "content": "import pico_ioc as pico\nimport services\nimport schemas\nimport pico_pydantic\n\npico.init(modules=[pico_pydantic, services])\n\nservice = pico.get(services.ItemService)\n\n# Passing a plain dict — @validate will coerce it into ItemData\nresult = service.add_item({\"name\": \"Widget\", \"price\": 9.99})\nprint(result)\n" }
+      ],
+      "packages": ["pico-ioc", "pico-pydantic", "pydantic"],
+      "hints": [
+        "The <code>@validate</code> decorator is already imported from <code>pico_pydantic</code> in <code>services.py</code>.",
+        "Place <code>@validate</code> directly above the <code>def add_item</code> line.",
+        "The final method should look like:<br><code>@validate<br>def add_item(self, data: ItemData) -> str:</code>"
+      ],
+      "solution": {
+        "services.py": "from pico_ioc import component\nfrom pico_pydantic import validate\nfrom schemas import ItemData\n\n@component\nclass ItemService:\n    @validate\n    def add_item(self, data: ItemData) -> str:\n        return f\"Added {data.name} at ${data.price:.2f}\"\n"
+      }
+    },
+    {
+      "id": 3,
+      "type": "lab",
+      "title": "Catching Validation Errors",
+      "description": "<h4>Handling Invalid Data Gracefully</h4><p>When <code>@validate</code> encounters invalid data, it raises a <code>ValidationFailedError</code>. In <code>test_main.py</code>, one test passes valid data and another passes invalid data (a negative age).</p><p class='mt-2'>The invalid-data test tries to catch the error, but it's catching the wrong exception type. Your task: fix the <code>except</code> clause in <code>test_invalid_user</code> to catch <code>ValidationFailedError</code> from <code>pico_pydantic</code>.</p>",
+      "files": [
+        { "name": "schemas.py", "content": "from pydantic import BaseModel, Field\n\nclass UserCreate(BaseModel):\n    username: str = Field(min_length=1)\n    age: int = Field(ge=0)\n" },
+        { "name": "services.py", "content": "from pico_ioc import component\nfrom pico_pydantic import validate\nfrom schemas import UserCreate\n\n@component\nclass UserService:\n    @validate\n    def create_user(self, data: UserCreate) -> str:\n        return f\"Created user {data.username}, age {data.age}\"\n" },
+        { "name": "test_main.py", "content": "import pico_ioc as pico\nimport services\nimport schemas\nimport pico_pydantic\n\npico.init(modules=[pico_pydantic, services])\nsvc = pico.get(services.UserService)\n\ndef test_valid_user():\n    result = svc.create_user({\"username\": \"alice\", \"age\": 30})\n    assert \"alice\" in result\n    print(f\"PASS: {result}\")\n\ndef test_invalid_user():\n    try:\n        # Negative age should fail validation\n        svc.create_user({\"username\": \"bob\", \"age\": -5})\n        assert False, \"Should have raised an error\"\n    # 👈 Fix: catch the correct exception type\n    except ValueError:\n        print(\"PASS: Validation error caught correctly\")\n" }
+      ],
+      "packages": ["pico-ioc", "pico-pydantic", "pydantic", "pytest"],
+      "hints": [
+        "The error raised by <code>@validate</code> is not a plain <code>ValueError</code>. It is <code>ValidationFailedError</code> from the <code>pico_pydantic</code> module.",
+        "You need to import <code>ValidationFailedError</code> from <code>pico_pydantic</code> at the top of <code>test_main.py</code>.",
+        "Replace <code>except ValueError:</code> with <code>except pico_pydantic.ValidationFailedError:</code> (or import it and use the short name)."
+      ],
+      "solution": {
+        "test_main.py": "import pico_ioc as pico\nimport services\nimport schemas\nimport pico_pydantic\nfrom pico_pydantic import ValidationFailedError\n\npico.init(modules=[pico_pydantic, services])\nsvc = pico.get(services.UserService)\n\ndef test_valid_user():\n    result = svc.create_user({\"username\": \"alice\", \"age\": 30})\n    assert \"alice\" in result\n    print(f\"PASS: {result}\")\n\ndef test_invalid_user():\n    try:\n        # Negative age should fail validation\n        svc.create_user({\"username\": \"bob\", \"age\": -5})\n        assert False, \"Should have raised an error\"\n    # 👈 Fix: catch the correct exception type\n    except ValidationFailedError:\n        print(\"PASS: Validation error caught correctly\")\n"
+      }
+    },
+    {
+      "id": 4,
+      "type": "lab",
+      "title": "Complex Validation Rules",
+      "description": "<h4>Field Constraints and Custom Validators</h4><p>Pydantic gives you powerful tools: <code>Field</code> constraints, <code>field_validator</code>, and <code>model_validator</code>. Combined with <code>@validate</code>, these rules run automatically on every service call.</p><p class='mt-2'>In <code>schemas.py</code>, the <code>OrderData</code> model is missing some <code>Field</code> constraints. The tests in <code>test_main.py</code> expect that invalid inputs are rejected. Your task: add the correct <code>Field</code> constraints to make all tests pass.</p>",
+      "files": [
+        { "name": "schemas.py", "content": "from pydantic import BaseModel, Field, field_validator\n\nclass OrderData(BaseModel):\n    # 👈 Add Field constraints: product must be at least 1 char\n    product: str\n    # 👈 Add Field constraint: quantity must be greater than 0\n    quantity: int\n    # 👈 Add Field constraint: price_per_unit must be greater than 0\n    price_per_unit: float\n\n    @field_validator(\"product\")\n    @classmethod\n    def product_must_not_be_blank(cls, v: str) -> str:\n        if not v.strip():\n            raise ValueError(\"Product name cannot be blank\")\n        return v.strip()\n" },
+        { "name": "services.py", "content": "from pico_ioc import component\nfrom pico_pydantic import validate\nfrom schemas import OrderData\n\n@component\nclass OrderService:\n    @validate\n    def place_order(self, data: OrderData) -> str:\n        total = data.quantity * data.price_per_unit\n        return f\"Order: {data.quantity}x {data.product} = ${total:.2f}\"\n" },
+        { "name": "test_main.py", "content": "import pico_ioc as pico\nimport services\nimport schemas\nimport pico_pydantic\nfrom pico_pydantic import ValidationFailedError\n\npico.init(modules=[pico_pydantic, services])\nsvc = pico.get(services.OrderService)\n\ndef test_valid_order():\n    result = svc.place_order({\"product\": \"Laptop\", \"quantity\": 2, \"price_per_unit\": 999.99})\n    assert \"Laptop\" in result\n    print(f\"PASS: {result}\")\n\ndef test_empty_product():\n    try:\n        svc.place_order({\"product\": \"   \", \"quantity\": 1, \"price_per_unit\": 10.0})\n        assert False, \"Should have raised\"\n    except ValidationFailedError:\n        print(\"PASS: Blank product rejected\")\n\ndef test_zero_quantity():\n    try:\n        svc.place_order({\"product\": \"Mouse\", \"quantity\": 0, \"price_per_unit\": 25.0})\n        assert False, \"Should have raised\"\n    except ValidationFailedError:\n        print(\"PASS: Zero quantity rejected\")\n\ndef test_negative_price():\n    try:\n        svc.place_order({\"product\": \"Keyboard\", \"quantity\": 1, \"price_per_unit\": -5.0})\n        assert False, \"Should have raised\"\n    except ValidationFailedError:\n        print(\"PASS: Negative price rejected\")\n" }
+      ],
+      "packages": ["pico-ioc", "pico-pydantic", "pydantic", "pytest"],
+      "hints": [
+        "Pydantic's <code>Field</code> supports constraints like <code>min_length</code> for strings and <code>gt</code> (greater than) for numbers.",
+        "For <code>product</code>, use <code>Field(min_length=1)</code>. For <code>quantity</code> and <code>price_per_unit</code>, use <code>Field(gt=0)</code>.",
+        "The final fields should look like:<br><code>product: str = Field(min_length=1)</code><br><code>quantity: int = Field(gt=0)</code><br><code>price_per_unit: float = Field(gt=0)</code>"
+      ],
+      "solution": {
+        "schemas.py": "from pydantic import BaseModel, Field, field_validator\n\nclass OrderData(BaseModel):\n    product: str = Field(min_length=1)\n    quantity: int = Field(gt=0)\n    price_per_unit: float = Field(gt=0)\n\n    @field_validator(\"product\")\n    @classmethod\n    def product_must_not_be_blank(cls, v: str) -> str:\n        if not v.strip():\n            raise ValueError(\"Product name cannot be blank\")\n        return v.strip()\n"
+      }
+    },
+    {
+      "id": 5,
+      "type": "lab",
+      "title": "Stacking @validate with Interceptors",
+      "description": "<h4>Composing Validation and Cross-Cutting Concerns</h4><p><code>@validate</code> is itself an interceptor in the pico-ioc AOP chain. You can stack it with other interceptors like logging, caching, or authorization.</p><p class='mt-2'>In <code>services.py</code>, the <code>PaymentService</code> already has <code>@validate</code>. A <code>LoggingInterceptor</code> is defined but not yet wired up. Your task: add <code>@intercepted_by(LoggingInterceptor)</code> after <code>@validate</code> so that both run in the chain. Validation fires first, then logging, then the method body.</p>",
+      "files": [
+        { "name": "schemas.py", "content": "from pydantic import BaseModel, Field\n\nclass PaymentData(BaseModel):\n    amount: float = Field(gt=0)\n    currency: str = Field(min_length=3, max_length=3)\n" },
+        { "name": "services.py", "content": "from pico_ioc import component, interceptor, intercepted_by, Invocation\nfrom pico_pydantic import validate\nfrom schemas import PaymentData\n\n@interceptor\nclass LoggingInterceptor:\n    def intercept(self, invocation: Invocation):\n        method_name = invocation.method.__name__\n        print(f\"[LOG] Calling {method_name} with args={invocation.args}\")\n        result = invocation.proceed()\n        print(f\"[LOG] {method_name} returned: {result}\")\n        return result\n\n@component\nclass PaymentService:\n    @validate\n    # 👈 Add @intercepted_by(LoggingInterceptor) here\n    def process_payment(self, data: PaymentData) -> str:\n        return f\"Processed {data.amount} {data.currency}\"\n" },
+        { "name": "main.py", "content": "import pico_ioc as pico\nimport services\nimport schemas\nimport pico_pydantic\n\npico.init(modules=[pico_pydantic, services])\n\nsvc = pico.get(services.PaymentService)\n\nprint(\"--- Valid payment ---\")\nresult = svc.process_payment({\"amount\": 42.50, \"currency\": \"USD\"})\nprint(f\"Result: {result}\")\n\nprint(\"\\n--- Invalid payment ---\")\ntry:\n    svc.process_payment({\"amount\": -10, \"currency\": \"USD\"})\nexcept Exception as e:\n    print(f\"Caught: {type(e).__name__}: {e}\")\n" }
+      ],
+      "packages": ["pico-ioc", "pico-pydantic", "pydantic"],
+      "hints": [
+        "The <code>intercepted_by</code> function is already imported in <code>services.py</code>. You just need to use it as a decorator.",
+        "Place <code>@intercepted_by(LoggingInterceptor)</code> on the line between <code>@validate</code> and <code>def process_payment</code>.",
+        "The final method should have two decorators stacked:<br><code>@validate<br>@intercepted_by(LoggingInterceptor)<br>def process_payment(self, data: PaymentData) -> str:</code>"
+      ],
+      "solution": {
+        "services.py": "from pico_ioc import component, interceptor, intercepted_by, Invocation\nfrom pico_pydantic import validate\nfrom schemas import PaymentData\n\n@interceptor\nclass LoggingInterceptor:\n    def intercept(self, invocation: Invocation):\n        method_name = invocation.method.__name__\n        print(f\"[LOG] Calling {method_name} with args={invocation.args}\")\n        result = invocation.proceed()\n        print(f\"[LOG] {method_name} returned: {result}\")\n        return result\n\n@component\nclass PaymentService:\n    @validate\n    @intercepted_by(LoggingInterceptor)\n    def process_payment(self, data: PaymentData) -> str:\n        return f\"Processed {data.amount} {data.currency}\"\n"
+      }
+    }
+  ]
+}

@@ -79,7 +79,7 @@ const TabbedCodeEditor: React.FC<TabbedCodeEditorProps> = ({ files, onFilesChang
           </button>
         )}
       </div>
-      <div className="flex-grow min-h-0">
+      <div className="flex-grow min-h-0 overflow-hidden">
         {activeTabId === GRAPH_TAB_ID ? (
             <GraphVisualizer data={graphData} />
         ) : activeFile ? (

@@ -1,0 +1,123 @@
+{
+  "title": "Learn pico-fastapi — REST Controllers",
+  "date": "2026-03-28",
+  "levels": [
+    {
+      "id": 0,
+      "type": "cover",
+      "title": "Learn pico-fastapi",
+      "description": "Build REST APIs with dependency-injected controllers.",
+      "files": [],
+      "packages": []
+    },
+    {
+      "id": 100,
+      "type": "toc",
+      "title": "Table of Contents",
+      "description": "Select a level to begin.",
+      "files": [],
+      "packages": []
+    },
+    {
+      "id": 1,
+      "type": "lab",
+      "title": "Your First Controller",
+      "description": "<h4>Your First Controller</h4><p><code>pico-fastapi</code> lets you define REST controllers as classes managed by the <code>pico-ioc</code> container. You mark a class with the <code>@controller</code> decorator and specify a URL prefix.</p><p class=\"mt-2\">In <code>controllers.py</code>, the <code>HealthController</code> class is missing its <code>@controller</code> decorator. Add <code>@controller(prefix=\"/api\")</code> so that <code>pico-fastapi</code> registers it as a REST controller.</p><p class=\"mt-2\">In <code>main.py</code>, we initialize the container and verify the controller was registered.</p>",
+      "files": [
+        { "name": "controllers.py", "content": "from pico_fastapi import controller, get\n\n# Add the @controller decorator with prefix=\"/api\"\nclass HealthController:\n    @get(\"/health\")\n    def health_check(self):\n        return {\"status\": \"ok\"}\n" },
+        { "name": "main.py", "content": "import pico_ioc as pico\nimport pico_fastapi\nimport controllers\n\ncontainer = pico.init(modules=[pico_fastapi, controllers])\n\n# Verify the controller is registered in the container\nctrl = container.get(controllers.HealthController)\nprint(f\"Controller found: {type(ctrl).__name__}\")\nprint(f\"health_check result: {ctrl.health_check()}\")\n" }
+      ],
+      "packages": ["pico-ioc", "pico-fastapi", "fastapi"],
+      "hints": [
+        "The controller class needs a decorator to tell pico-fastapi it is a REST controller.",
+        "Import `controller` from `pico_fastapi` and apply it to the class with a `prefix` argument.",
+        "Add `@controller(prefix=\"/api\")` directly above the `class HealthController:` line."
+      ],
+      "solution": {
+        "controllers.py": "from pico_fastapi import controller, get\n\n@controller(prefix=\"/api\")\nclass HealthController:\n    @get(\"/health\")\n    def health_check(self):\n        return {\"status\": \"ok\"}\n"
+      }
+    },
+    {
+      "id": 2,
+      "type": "lab",
+      "title": "Route Decorators",
+      "description": "<h4>Route Decorators</h4><p><code>pico-fastapi</code> provides route decorators that mirror FastAPI: <code>@get</code>, <code>@post</code>, <code>@put</code>, and <code>@delete</code>. Each takes a path string and optional keyword arguments like <code>status_code</code>.</p><p class=\"mt-2\">The <code>TodoController</code> in <code>controllers.py</code> has methods but is missing route decorators. Add the correct decorator to each method.</p><p class=\"mt-2\">The test file checks that each method has the expected route metadata attached by the decorators.</p>",
+      "files": [
+        { "name": "controllers.py", "content": "from pico_fastapi import controller, get, post, put, delete\n\n@controller(prefix=\"/api/todos\")\nclass TodoController:\n    # Add @get(\"/\")\n    def list_todos(self):\n        return [{\"id\": 1, \"task\": \"Learn pico-fastapi\"}]\n\n    # Add @post(\"/\", status_code=201)\n    def create_todo(self, task: str):\n        return {\"id\": 2, \"task\": task}\n\n    # Add @put(\"/{todo_id}\")\n    def update_todo(self, todo_id: int, task: str):\n        return {\"id\": todo_id, \"task\": task}\n\n    # Add @delete(\"/{todo_id}\", status_code=204)\n    def delete_todo(self, todo_id: int):\n        return None\n" },
+        { "name": "test_main.py", "content": "import pico_ioc as pico\nimport pico_fastapi\nimport controllers\n\npico.init(modules=[pico_fastapi, controllers])\n\ndef test_list_has_get_route():\n    meta = getattr(controllers.TodoController.list_todos, \"_route_meta\", None)\n    assert meta is not None, \"list_todos is missing a route decorator\"\n    assert meta[\"method\"] == \"GET\"\n    assert meta[\"path\"] == \"/\"\n\ndef test_create_has_post_route():\n    meta = getattr(controllers.TodoController.create_todo, \"_route_meta\", None)\n    assert meta is not None, \"create_todo is missing a route decorator\"\n    assert meta[\"method\"] == \"POST\"\n    assert meta[\"status_code\"] == 201\n\ndef test_update_has_put_route():\n    meta = getattr(controllers.TodoController.update_todo, \"_route_meta\", None)\n    assert meta is not None, \"update_todo is missing a route decorator\"\n    assert meta[\"method\"] == \"PUT\"\n    assert meta[\"path\"] == \"/{todo_id}\"\n\ndef test_delete_has_delete_route():\n    meta = getattr(controllers.TodoController.delete_todo, \"_route_meta\", None)\n    assert meta is not None, \"delete_todo is missing a route decorator\"\n    assert meta[\"method\"] == \"DELETE\"\n    assert meta[\"status_code\"] == 204\n" }
+      ],
+      "packages": ["pico-ioc", "pico-fastapi", "fastapi", "pytest"],
+      "hints": [
+        "Each method needs a route decorator from `pico_fastapi` that matches the HTTP verb it represents.",
+        "`@get(\"/\")` for listing, `@post(\"/\", status_code=201)` for creating. The path goes inside the parentheses.",
+        "The complete set is: `@get(\"/\")`, `@post(\"/\", status_code=201)`, `@put(\"/{todo_id}\")`, `@delete(\"/{todo_id}\", status_code=204)`."
+      ],
+      "solution": {
+        "controllers.py": "from pico_fastapi import controller, get, post, put, delete\n\n@controller(prefix=\"/api/todos\")\nclass TodoController:\n    @get(\"/\")\n    def list_todos(self):\n        return [{\"id\": 1, \"task\": \"Learn pico-fastapi\"}]\n\n    @post(\"/\", status_code=201)\n    def create_todo(self, task: str):\n        return {\"id\": 2, \"task\": task}\n\n    @put(\"/{todo_id}\")\n    def update_todo(self, todo_id: int, task: str):\n        return {\"id\": todo_id, \"task\": task}\n\n    @delete(\"/{todo_id}\", status_code=204)\n    def delete_todo(self, todo_id: int):\n        return None\n"
+      }
+    },
+    {
+      "id": 3,
+      "type": "lab",
+      "title": "Injecting Services",
+      "description": "<h4>Injecting Services into Controllers</h4><p>Controllers are <code>pico-ioc</code> components, so they support constructor injection just like any other component. If a controller's <code>__init__</code> declares a type-hinted parameter, the container will resolve and inject it automatically.</p><p class=\"mt-2\">In <code>services.py</code>, a <code>GreetingService</code> component is defined. The <code>GreetingController</code> in <code>controllers.py</code> needs this service but its <code>__init__</code> is missing the parameter.</p><p class=\"mt-2\">Add <code>greeting_service: GreetingService</code> to the constructor and store it as <code>self._service</code>.</p>",
+      "files": [
+        { "name": "services.py", "content": "from pico_ioc import component\n\n@component\nclass GreetingService:\n    def greet(self, name: str) -> str:\n        return f\"Hello, {name}! Welcome to pico-fastapi.\"\n" },
+        { "name": "controllers.py", "content": "from pico_fastapi import controller, get\nfrom services import GreetingService\n\n@controller(prefix=\"/api\")\nclass GreetingController:\n    # Add greeting_service: GreetingService parameter and store as self._service\n    def __init__(self):\n        pass\n\n    @get(\"/greet/{name}\")\n    def greet(self, name: str) -> dict:\n        message = self._service.greet(name)\n        return {\"message\": message}\n" },
+        { "name": "main.py", "content": "import pico_ioc as pico\nimport pico_fastapi\nimport services\nimport controllers\n\ncontainer = pico.init(modules=[pico_fastapi, services, controllers])\n\nctrl = container.get(controllers.GreetingController)\nresult = ctrl.greet(\"World\")\nprint(f\"Response: {result}\")\n\n# Verify the service was injected\nassert hasattr(ctrl, '_service'), \"Controller is missing _service attribute\"\nassert isinstance(ctrl._service, services.GreetingService), \"Wrong type injected\"\nprint(\"Service injection verified!\")\n" }
+      ],
+      "packages": ["pico-ioc", "pico-fastapi", "fastapi"],
+      "hints": [
+        "The `__init__` method needs to accept a parameter so the container can inject the service.",
+        "Add a type-hinted parameter: `def __init__(self, greeting_service: GreetingService):` and assign it to `self._service`.",
+        "The complete constructor is: `def __init__(self, greeting_service: GreetingService):\\n        self._service = greeting_service`"
+      ],
+      "solution": {
+        "controllers.py": "from pico_fastapi import controller, get\nfrom services import GreetingService\n\n@controller(prefix=\"/api\")\nclass GreetingController:\n    def __init__(self, greeting_service: GreetingService):\n        self._service = greeting_service\n\n    @get(\"/greet/{name}\")\n    def greet(self, name: str) -> dict:\n        message = self._service.greet(name)\n        return {\"message\": message}\n"
+      }
+    },
+    {
+      "id": 4,
+      "type": "lab",
+      "title": "Response Models with Pydantic",
+      "description": "<h4>Response Models</h4><p>FastAPI uses Pydantic models to validate and document API responses. In <code>pico-fastapi</code>, you pass <code>response_model</code> to the route decorator so that FastAPI knows the shape of the returned data.</p><p class=\"mt-2\"><code>schemas.py</code> defines two Pydantic models. The routes in <code>controllers.py</code> are missing their <code>response_model</code> parameter. Add the correct model to each route decorator.</p><p class=\"mt-2\">The test verifies that the route metadata includes the expected response model.</p>",
+      "files": [
+        { "name": "schemas.py", "content": "from pydantic import BaseModel\nfrom typing import List\n\nclass ItemResponse(BaseModel):\n    id: int\n    name: str\n    price: float\n\nclass ItemListResponse(BaseModel):\n    items: List[ItemResponse]\n    total: int\n" },
+        { "name": "controllers.py", "content": "from pico_fastapi import controller, get, post\nfrom schemas import ItemResponse, ItemListResponse\n\n@controller(prefix=\"/api/items\")\nclass ItemController:\n    # Add response_model=ItemListResponse\n    @get(\"/\")\n    def list_items(self):\n        return {\"items\": [{\"id\": 1, \"name\": \"Widget\", \"price\": 9.99}], \"total\": 1}\n\n    # Add response_model=ItemResponse\n    @get(\"/{item_id}\")\n    def get_item(self, item_id: int):\n        return {\"id\": item_id, \"name\": \"Widget\", \"price\": 9.99}\n\n    # Add response_model=ItemResponse\n    @post(\"/\", status_code=201)\n    def create_item(self, name: str, price: float):\n        return {\"id\": 42, \"name\": name, \"price\": price}\n" },
+        { "name": "test_main.py", "content": "import pico_ioc as pico\nimport pico_fastapi\nimport controllers\nimport schemas\n\npico.init(modules=[pico_fastapi, controllers])\n\ndef test_list_items_response_model():\n    meta = getattr(controllers.ItemController.list_items, \"_route_meta\", None)\n    assert meta is not None, \"list_items is missing a route decorator\"\n    assert meta.get(\"response_model\") is schemas.ItemListResponse\n\ndef test_get_item_response_model():\n    meta = getattr(controllers.ItemController.get_item, \"_route_meta\", None)\n    assert meta is not None, \"get_item is missing a route decorator\"\n    assert meta.get(\"response_model\") is schemas.ItemResponse\n\ndef test_create_item_response_model():\n    meta = getattr(controllers.ItemController.create_item, \"_route_meta\", None)\n    assert meta is not None, \"create_item is missing a route decorator\"\n    assert meta.get(\"response_model\") is schemas.ItemResponse\n    assert meta.get(\"status_code\") == 201\n" }
+      ],
+      "packages": ["pico-ioc", "pico-fastapi", "fastapi", "pydantic", "pytest"],
+      "hints": [
+        "Each route decorator accepts a `response_model` keyword argument, just like FastAPI's own decorators.",
+        "For the list endpoint use `@get(\"/\", response_model=ItemListResponse)`. The single-item endpoints use `ItemResponse`.",
+        "The complete decorators are: `@get(\"/\", response_model=ItemListResponse)`, `@get(\"/{item_id}\", response_model=ItemResponse)`, and `@post(\"/\", status_code=201, response_model=ItemResponse)`."
+      ],
+      "solution": {
+        "controllers.py": "from pico_fastapi import controller, get, post\nfrom schemas import ItemResponse, ItemListResponse\n\n@controller(prefix=\"/api/items\")\nclass ItemController:\n    @get(\"/\", response_model=ItemListResponse)\n    def list_items(self):\n        return {\"items\": [{\"id\": 1, \"name\": \"Widget\", \"price\": 9.99}], \"total\": 1}\n\n    @get(\"/{item_id}\", response_model=ItemResponse)\n    def get_item(self, item_id: int):\n        return {\"id\": item_id, \"name\": \"Widget\", \"price\": 9.99}\n\n    @post(\"/\", status_code=201, response_model=ItemResponse)\n    def create_item(self, name: str, price: float):\n        return {\"id\": 42, \"name\": name, \"price\": price}\n"
+      }
+    },
+    {
+      "id": 5,
+      "type": "lab",
+      "title": "Multi-Layer Architecture",
+      "description": "<h4>Multi-Layer Architecture</h4><p>Real applications follow a layered pattern: <strong>Controller</strong> -> <strong>Service</strong> -> <strong>Repository</strong>. Each layer has a single responsibility and depends only on the layer below it.</p><p class=\"mt-2\">This lab has four files with missing pieces. The <code>UserRepository</code> needs the <code>@component</code> decorator, the <code>UserService</code> needs its repository dependency injected, and the <code>UserController</code> needs the <code>@controller</code> decorator and its service dependency.</p><p class=\"mt-2\">Wire all the layers together so the test passes.</p>",
+      "files": [
+        { "name": "repository.py", "content": "from pico_ioc import component\n\n# Add @component decorator\nclass UserRepository:\n    \"\"\"Mock repository that simulates database access.\"\"\"\n    def find_all(self):\n        return [\n            {\"id\": 1, \"name\": \"Alice\"},\n            {\"id\": 2, \"name\": \"Bob\"}\n        ]\n\n    def find_by_id(self, user_id: int):\n        users = {1: \"Alice\", 2: \"Bob\"}\n        name = users.get(user_id)\n        if name:\n            return {\"id\": user_id, \"name\": name}\n        return None\n" },
+        { "name": "services.py", "content": "from pico_ioc import component\nfrom repository import UserRepository\n\n@component\nclass UserService:\n    # Add repo: UserRepository parameter and store as self._repo\n    def __init__(self):\n        pass\n\n    def get_all_users(self):\n        return self._repo.find_all()\n\n    def get_user(self, user_id: int):\n        return self._repo.find_by_id(user_id)\n" },
+        { "name": "controllers.py", "content": "from pico_fastapi import controller, get\nfrom services import UserService\n\n# Add @controller(prefix=\"/api/users\")\nclass UserController:\n    # Add service: UserService parameter and store as self._service\n    def __init__(self):\n        pass\n\n    @get(\"/\")\n    def list_users(self):\n        return self._service.get_all_users()\n\n    @get(\"/{user_id}\")\n    def get_user(self, user_id: int):\n        return self._service.get_user(user_id)\n" },
+        { "name": "test_main.py", "content": "import pico_ioc as pico\nimport pico_fastapi\nimport repository\nimport services\nimport controllers\n\ncontainer = pico.init(modules=[pico_fastapi, repository, services, controllers])\n\ndef test_controller_is_registered():\n    ctrl = container.get(controllers.UserController)\n    assert ctrl is not None\n\ndef test_service_is_injected():\n    ctrl = container.get(controllers.UserController)\n    assert hasattr(ctrl, '_service')\n    assert isinstance(ctrl._service, services.UserService)\n\ndef test_repository_is_injected():\n    svc = container.get(services.UserService)\n    assert hasattr(svc, '_repo')\n    assert isinstance(svc._repo, repository.UserRepository)\n\ndef test_list_users_returns_data():\n    ctrl = container.get(controllers.UserController)\n    users = ctrl.list_users()\n    assert len(users) == 2\n    assert users[0][\"name\"] == \"Alice\"\n\ndef test_get_user_by_id():\n    ctrl = container.get(controllers.UserController)\n    user = ctrl.get_user(1)\n    assert user[\"name\"] == \"Alice\"\n" }
+      ],
+      "packages": ["pico-ioc", "pico-fastapi", "fastapi", "pytest"],
+      "hints": [
+        "Three things are broken: the repository needs `@component`, the service needs its dependency, and the controller needs both `@controller` and its dependency.",
+        "In `repository.py` add `@component` above the class. In `services.py` change `__init__` to accept `repo: UserRepository` and assign `self._repo = repo`.",
+        "In `controllers.py` add `@controller(prefix=\"/api/users\")` above the class and change `__init__` to accept `service: UserService` with `self._service = service`."
+      ],
+      "solution": {
+        "repository.py": "from pico_ioc import component\n\n@component\nclass UserRepository:\n    \"\"\"Mock repository that simulates database access.\"\"\"\n    def find_all(self):\n        return [\n            {\"id\": 1, \"name\": \"Alice\"},\n            {\"id\": 2, \"name\": \"Bob\"}\n        ]\n\n    def find_by_id(self, user_id: int):\n        users = {1: \"Alice\", 2: \"Bob\"}\n        name = users.get(user_id)\n        if name:\n            return {\"id\": user_id, \"name\": name}\n        return None\n",
+        "services.py": "from pico_ioc import component\nfrom repository import UserRepository\n\n@component\nclass UserService:\n    def __init__(self, repo: UserRepository):\n        self._repo = repo\n\n    def get_all_users(self):\n        return self._repo.find_all()\n\n    def get_user(self, user_id: int):\n        return self._repo.find_by_id(user_id)\n",
+        "controllers.py": "from pico_fastapi import controller, get\nfrom services import UserService\n\n@controller(prefix=\"/api/users\")\nclass UserController:\n    def __init__(self, service: UserService):\n        self._service = service\n\n    @get(\"/\")\n    def list_users(self):\n        return self._service.get_all_users()\n\n    @get(\"/{user_id}\")\n    def get_user(self, user_id: int):\n        return self._service.get_user(user_id)\n"
+      }
+    }
+  ]
+}

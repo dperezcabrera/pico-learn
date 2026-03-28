@@ -1,0 +1,140 @@
+{
+  "title": "Advanced pico-ioc Patterns",
+  "date": "2026-03-28",
+  "levels": [
+    {
+      "id": 0,
+      "type": "cover",
+      "title": "Advanced pico-ioc Patterns",
+      "description": "Master configuration, factories, AOP interceptors, lifecycle hooks, and testing with pico-ioc.",
+      "files": [],
+      "packages": []
+    },
+    {
+      "id": 100,
+      "type": "toc",
+      "title": "Table of Contents",
+      "description": "Select a level to begin.",
+      "files": [],
+      "packages": []
+    },
+    {
+      "id": 1,
+      "type": "lab",
+      "title": "@configured \u2014 Type-Safe Settings",
+      "description": "<h4>Type-Safe Configuration with @configured</h4><p>The <code>@configured</code> decorator binds a Python <code>dataclass</code> to a configuration source. At container startup, pico-ioc automatically populates the fields from the config tree.</p><p>You specify a <code>prefix</code> to select the subtree and <code>mapping=\"tree\"</code> to recursively map nested dicts onto the dataclass fields.</p><p>In <code>main.py</code>, we use <code>DictSource</code> to provide an in-memory config dict and pass it via <code>configuration()</code> to <code>init()</code>. The container then creates a fully populated <code>AppSettings</code> instance.</p><p>Your task: add the <code>@configured(prefix=\"app\", mapping=\"tree\")</code> decorator to the <code>AppSettings</code> dataclass in <code>app.py</code>.</p>",
+      "files": [
+        { "name": "app.py", "content": "from dataclasses import dataclass\nfrom pico_ioc import configured\n\n# \ud83d\udc48 Add @configured(prefix=\"app\", mapping=\"tree\") here\n@dataclass\nclass AppSettings:\n    name: str = \"default\"\n    debug: bool = False\n" },
+        { "name": "main.py", "content": "import pico_ioc as pico\nfrom pico_ioc import configuration, DictSource\nimport app\n\nconfig = configuration(DictSource({\"app\": {\"name\": \"MyApp\", \"debug\": True}}))\ncontainer = pico.init(modules=[app], config=config)\n\nsettings = container.get(app.AppSettings)\nprint(f\"App name: {settings.name}\")\nprint(f\"Debug mode: {settings.debug}\")\n" }
+      ],
+      "packages": ["pico-ioc"],
+      "hints": [
+        "The @configured decorator goes right above @dataclass, and it takes keyword arguments.",
+        "You need two arguments: prefix tells pico-ioc where to look in the config tree, and mapping tells it how to bind values.",
+        "The complete decorator is: @configured(prefix=\"app\", mapping=\"tree\")"
+      ],
+      "solution": {
+        "app.py": "from dataclasses import dataclass\nfrom pico_ioc import configured\n\n@configured(prefix=\"app\", mapping=\"tree\")\n@dataclass\nclass AppSettings:\n    name: str = \"default\"\n    debug: bool = False\n"
+      }
+    },
+    {
+      "id": 2,
+      "type": "lab",
+      "title": "@factory and @provides",
+      "description": "<h4>Factories for Complex Object Creation</h4><p>Sometimes you need more control over how an object is created than a simple constructor allows. The <code>@factory</code> decorator marks a class whose methods produce components. Each producer method is decorated with <code>@provides</code>.</p><p>The factory class itself is managed by the container, so its methods can receive injected dependencies. The <code>@provides(SomeType)</code> decorator tells pico-ioc that the method's return value should be registered as the provider for <code>SomeType</code>.</p><p>In <code>app.py</code>, the <code>InfraFactory</code> class is already decorated with <code>@factory</code>. Your task: add <code>@provides(DatabaseClient)</code> to the <code>build_db</code> method so the container knows how to create a <code>DatabaseClient</code>.</p>",
+      "files": [
+        { "name": "app.py", "content": "from pico_ioc import factory, provides\n\nclass DatabaseClient:\n    def __init__(self, url: str):\n        self.url = url\n\n    def query(self, sql: str) -> str:\n        return f\"[{self.url}] Result of: {sql}\"\n\n@factory\nclass InfraFactory:\n    # \ud83d\udc48 Add @provides(DatabaseClient) here\n    def build_db(self) -> DatabaseClient:\n        return DatabaseClient(url=\"sqlite://memory\")\n" },
+        { "name": "main.py", "content": "import pico_ioc as pico\nimport app\n\ncontainer = pico.init(modules=[app])\n\ndb = container.get(app.DatabaseClient)\nprint(db.query(\"SELECT * FROM users\"))\n" }
+      ],
+      "packages": ["pico-ioc"],
+      "hints": [
+        "The @provides decorator goes above the method definition inside the factory class.",
+        "You need to tell @provides which type this method produces by passing the class as an argument.",
+        "Add @provides(DatabaseClient) right above the build_db method."
+      ],
+      "solution": {
+        "app.py": "from pico_ioc import factory, provides\n\nclass DatabaseClient:\n    def __init__(self, url: str):\n        self.url = url\n\n    def query(self, sql: str) -> str:\n        return f\"[{self.url}] Result of: {sql}\"\n\n@factory\nclass InfraFactory:\n    @provides(DatabaseClient)\n    def build_db(self) -> DatabaseClient:\n        return DatabaseClient(url=\"sqlite://memory\")\n"
+      }
+    },
+    {
+      "id": 3,
+      "type": "lab",
+      "title": "Method Interceptors (AOP)",
+      "description": "<h4>Aspect-Oriented Programming with Interceptors</h4><p>Interceptors let you wrap cross-cutting logic (logging, timing, validation) around method calls without modifying the method itself. An interceptor is a <code>@component</code> that implements the <code>invoke(self, ctx, call_next)</code> method.</p><p>The <code>@intercepted_by(InterceptorClass)</code> decorator is placed on the method you want to intercept. The interceptor receives a <code>MethodCtx</code> object with details about the call and a <code>call_next</code> function to proceed to the actual method.</p><p>In <code>app.py</code>, the <code>LoggingInterceptor</code> is ready. Your task: add <code>@intercepted_by(LoggingInterceptor)</code> to the <code>add</code> method of <code>Calculator</code>.</p>",
+      "files": [
+        { "name": "app.py", "content": "from pico_ioc import component\nfrom pico_ioc import intercepted_by, MethodCtx\n\n@component\nclass LoggingInterceptor:\n    def invoke(self, ctx: MethodCtx, call_next):\n        print(f\">> Before {ctx.name}({ctx.args})\")\n        result = call_next(ctx)\n        print(f\"<< After {ctx.name} = {result}\")\n        return result\n\n@component\nclass Calculator:\n    # \ud83d\udc48 Add @intercepted_by(LoggingInterceptor) here\n    def add(self, a: int, b: int) -> int:\n        return a + b\n" },
+        { "name": "main.py", "content": "import pico_ioc as pico\nimport app\n\ncontainer = pico.init(modules=[app])\n\ncalc = container.get(app.Calculator)\nresult = calc.add(2, 3)\nprint(f\"Result: {result}\")\n" }
+      ],
+      "packages": ["pico-ioc"],
+      "hints": [
+        "The @intercepted_by decorator goes on the method that should be intercepted, not on the class.",
+        "Pass the interceptor class (not an instance) as the argument to @intercepted_by.",
+        "Add @intercepted_by(LoggingInterceptor) directly above the add method."
+      ],
+      "solution": {
+        "app.py": "from pico_ioc import component\nfrom pico_ioc import intercepted_by, MethodCtx\n\n@component\nclass LoggingInterceptor:\n    def invoke(self, ctx: MethodCtx, call_next):\n        print(f\">> Before {ctx.name}({ctx.args})\")\n        result = call_next(ctx)\n        print(f\"<< After {ctx.name} = {result}\")\n        return result\n\n@component\nclass Calculator:\n    @intercepted_by(LoggingInterceptor)\n    def add(self, a: int, b: int) -> int:\n        return a + b\n"
+      }
+    },
+    {
+      "id": 4,
+      "type": "lab",
+      "title": "Lifecycle: @configure and @cleanup",
+      "description": "<h4>Post-Construction and Shutdown Hooks</h4><p>Components often need to perform setup after construction or cleanup before shutdown. The <code>@configure</code> decorator marks a method that runs right after the component is fully created and injected. The <code>@cleanup</code> decorator marks a method that runs when <code>container.shutdown()</code> is called.</p><p>This is useful for initializing connection pools, warming caches, or releasing resources gracefully.</p><p>In <code>app.py</code>, the <code>ConnectionPool</code> has a <code>setup</code> method that should run at startup and a <code>close</code> method that runs at shutdown. The <code>@cleanup</code> is already in place. Your task: add the <code>@configure</code> decorator to the <code>setup</code> method.</p>",
+      "files": [
+        { "name": "app.py", "content": "from pico_ioc import component, configure, cleanup\n\n@component\nclass ConnectionPool:\n    def __init__(self):\n        self._ready = False\n\n    # \ud83d\udc48 Add @configure here\n    def setup(self):\n        self._ready = True\n        print(\"Pool initialized\")\n\n    @cleanup\n    def close(self):\n        self._ready = False\n        print(\"Pool closed\")\n\n    def status(self) -> str:\n        return \"ready\" if self._ready else \"not ready\"\n" },
+        { "name": "main.py", "content": "import pico_ioc as pico\nimport app\n\ncontainer = pico.init(modules=[app])\n\npool = container.get(app.ConnectionPool)\nprint(f\"Pool status: {pool.status()}\")\n\ncontainer.shutdown()\nprint(f\"Pool status after shutdown: {pool.status()}\")\n" }
+      ],
+      "packages": ["pico-ioc"],
+      "hints": [
+        "The @configure decorator marks a method to run automatically after the component is created.",
+        "It goes directly above the method definition, just like @cleanup does for the close method.",
+        "Add @configure on the line above def setup(self):."
+      ],
+      "solution": {
+        "app.py": "from pico_ioc import component, configure, cleanup\n\n@component\nclass ConnectionPool:\n    def __init__(self):\n        self._ready = False\n\n    @configure\n    def setup(self):\n        self._ready = True\n        print(\"Pool initialized\")\n\n    @cleanup\n    def close(self):\n        self._ready = False\n        print(\"Pool closed\")\n\n    def status(self) -> str:\n        return \"ready\" if self._ready else \"not ready\"\n"
+      }
+    },
+    {
+      "id": 5,
+      "type": "lab",
+      "title": "Testing with Overrides",
+      "description": "<h4>Replacing Components for Testing</h4><p>The <code>overrides</code> parameter in <code>pico.init()</code> lets you swap out real components with mocks or fakes. This is essential for unit testing: you can replace a payment gateway, a database, or any dependency without changing your production code.</p><p>The overrides dict maps a <strong>type</strong> (the class to replace) to an <strong>instance</strong> or <strong>callable</strong>. When the container encounters a dependency on that type, it uses your override instead.</p><p>In <code>test_main.py</code>, we want to test <code>OrderService</code> with a mock gateway. The override syntax is wrong. Your task: fix the <code>overrides</code> dict so that <code>PaymentGateway</code> is replaced by the <code>mock_gw</code> instance.</p>",
+      "files": [
+        { "name": "app.py", "content": "from pico_ioc import component\n\n@component\nclass PaymentGateway:\n    def charge(self, amount: float) -> str:\n        return f\"Charged ${amount} via real gateway\"\n\n@component\nclass OrderService:\n    def __init__(self, gateway: PaymentGateway):\n        self._gateway = gateway\n\n    def place_order(self, amount: float) -> str:\n        return self._gateway.charge(amount)\n" },
+        { "name": "test_main.py", "content": "import pico_ioc as pico\nimport app\n\nclass MockGateway:\n    def charge(self, amount: float) -> str:\n        return f\"Mock charge: ${amount}\"\n\ndef test_order_with_mock():\n    mock_gw = MockGateway()\n\n    # \ud83d\udc48 Fix the overrides syntax below\n    container = pico.init(modules=[app], overrides={\"PaymentGateway\": mock_gw})\n\n    order_svc = container.get(app.OrderService)\n    result = order_svc.place_order(99.99)\n    print(result)\n    assert \"Mock charge\" in result\n" }
+      ],
+      "packages": ["pico-ioc", "pytest"],
+      "hints": [
+        "The overrides dict key should be a type, not a string. Think about what the container uses to look up the dependency.",
+        "OrderService depends on PaymentGateway via its type hint. The override key must match that type.",
+        "Change the key from the string \"PaymentGateway\" to the actual class: app.PaymentGateway."
+      ],
+      "solution": {
+        "test_main.py": "import pico_ioc as pico\nimport app\n\nclass MockGateway:\n    def charge(self, amount: float) -> str:\n        return f\"Mock charge: ${amount}\"\n\ndef test_order_with_mock():\n    mock_gw = MockGateway()\n\n    # \ud83d\udc48 Fix the overrides syntax below\n    container = pico.init(modules=[app], overrides={app.PaymentGateway: mock_gw})\n\n    order_svc = container.get(app.OrderService)\n    result = order_svc.place_order(99.99)\n    print(result)\n    assert \"Mock charge\" in result\n"
+      }
+    },
+    {
+      "id": 6,
+      "type": "lab",
+      "title": "Putting It All Together",
+      "description": "<h4>Combining Advanced Patterns</h4><p>Let's wire up a mini-application that uses several advanced features at once: <code>@configured</code> for settings, <code>@component</code> for services with dependency injection, <code>@intercepted_by</code> for logging, and <code>overrides</code> for testing.</p><p>You have five files. Some decorators are missing. Your task is to add the missing decorators so that everything works together:</p><ul><li><code>config.py</code> \u2014 needs <code>@configured</code></li><li><code>services.py</code> \u2014 needs <code>@component</code> on <code>OrderService</code></li><li><code>interceptors.py</code> \u2014 needs <code>@intercepted_by</code> wired in <code>services.py</code></li><li><code>test_main.py</code> \u2014 already complete</li></ul>",
+      "files": [
+        { "name": "config.py", "content": "from dataclasses import dataclass\nfrom pico_ioc import configured\n\n# \ud83d\udc48 Add @configured(prefix=\"store\", mapping=\"tree\")\n@dataclass\nclass StoreSettings:\n    name: str = \"DefaultStore\"\n    tax_rate: float = 0.1\n" },
+        { "name": "interceptors.py", "content": "from pico_ioc import component, MethodCtx\n\n@component\nclass AuditInterceptor:\n    def invoke(self, ctx: MethodCtx, call_next):\n        print(f\"[AUDIT] {ctx.name} called with {ctx.args}\")\n        result = call_next(ctx)\n        print(f\"[AUDIT] {ctx.name} returned {result}\")\n        return result\n" },
+        { "name": "services.py", "content": "from pico_ioc import component, intercepted_by\nfrom config import StoreSettings\nfrom interceptors import AuditInterceptor\n\n@component\nclass PaymentGateway:\n    def charge(self, amount: float) -> str:\n        return f\"Charged ${amount:.2f}\"\n\n# \ud83d\udc48 Add @component here\nclass OrderService:\n    def __init__(self, gateway: PaymentGateway, settings: StoreSettings):\n        self._gateway = gateway\n        self._settings = settings\n\n    # \ud83d\udc48 Add @intercepted_by(AuditInterceptor) here\n    def place_order(self, amount: float) -> str:\n        total = amount * (1 + self._settings.tax_rate)\n        return f\"{self._settings.name}: {self._gateway.charge(total)}\"\n" },
+        { "name": "main.py", "content": "import pico_ioc as pico\nfrom pico_ioc import configuration, DictSource\nimport config\nimport interceptors\nimport services\n\ncfg = configuration(DictSource({\"store\": {\"name\": \"PyShop\", \"tax_rate\": 0.08}}))\ncontainer = pico.init(modules=[config, interceptors, services], config=cfg)\n\norder_svc = container.get(services.OrderService)\nprint(order_svc.place_order(100.0))\n" },
+        { "name": "test_main.py", "content": "import pico_ioc as pico\nfrom pico_ioc import configuration, DictSource\nimport config\nimport interceptors\nimport services\n\nclass MockGateway:\n    def charge(self, amount: float) -> str:\n        return f\"MockCharge ${amount:.2f}\"\n\ndef test_order_with_override():\n    cfg = configuration(DictSource({\"store\": {\"name\": \"TestShop\", \"tax_rate\": 0.0}}))\n    mock_gw = MockGateway()\n    container = pico.init(\n        modules=[config, interceptors, services],\n        config=cfg,\n        overrides={services.PaymentGateway: mock_gw}\n    )\n\n    order_svc = container.get(services.OrderService)\n    result = order_svc.place_order(50.0)\n    print(result)\n    assert \"TestShop\" in result\n    assert \"MockCharge $50.00\" in result\n" }
+      ],
+      "packages": ["pico-ioc", "pytest"],
+      "hints": [
+        "There are three missing decorators across two files. Start with config.py since services depend on StoreSettings.",
+        "In config.py, add @configured(prefix=\"store\", mapping=\"tree\") above @dataclass. In services.py, add @component above class OrderService.",
+        "Finally, in services.py, add @intercepted_by(AuditInterceptor) above the place_order method."
+      ],
+      "solution": {
+        "config.py": "from dataclasses import dataclass\nfrom pico_ioc import configured\n\n@configured(prefix=\"store\", mapping=\"tree\")\n@dataclass\nclass StoreSettings:\n    name: str = \"DefaultStore\"\n    tax_rate: float = 0.1\n",
+        "services.py": "from pico_ioc import component, intercepted_by\nfrom config import StoreSettings\nfrom interceptors import AuditInterceptor\n\n@component\nclass PaymentGateway:\n    def charge(self, amount: float) -> str:\n        return f\"Charged ${amount:.2f}\"\n\n@component\nclass OrderService:\n    def __init__(self, gateway: PaymentGateway, settings: StoreSettings):\n        self._gateway = gateway\n        self._settings = settings\n\n    @intercepted_by(AuditInterceptor)\n    def place_order(self, amount: float) -> str:\n        total = amount * (1 + self._settings.tax_rate)\n        return f\"{self._settings.name}: {self._gateway.charge(total)}\"\n"
+      }
+    }
+  ]
+}

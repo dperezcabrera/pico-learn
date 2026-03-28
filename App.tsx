@@ -50,10 +50,12 @@ export default function App() {
 
   const PRESET_COURSES = [
       { name: 'The Philosophy of DI in Python', url: 'course-philosophy.json' },
-      { name: 'Learn Pico-IOC', url: 'course-pico-ioc.json' },
-      { name: 'Advanced DI Patterns (Coming Soon)', url: '' },
-      { name: 'DI in Web Frameworks (Coming Soon)', url: '' },
-      { name: 'Async DI with Python (Coming Soon)', url: '' },
+      { name: 'Learn pico-ioc', url: 'course-pico-ioc.json' },
+      { name: 'Advanced pico-ioc Patterns', url: 'course-pico-ioc-advanced.json' },
+      { name: 'Learn pico-fastapi', url: 'course-pico-fastapi.json' },
+      { name: 'Learn pico-sqlalchemy', url: 'course-pico-sqlalchemy.json' },
+      { name: 'Learn pico-pydantic', url: 'course-pico-pydantic.json' },
+      { name: 'Learn pico-celery', url: 'course-pico-celery.json' },
   ];
 
   const loadCourse = useCallback(async (url: string) => {
@@ -254,14 +256,14 @@ export default function App() {
       default:
         return (
           <>
-            <aside className="lg:col-span-3 flex flex-col gap-4">
+            <aside className="lg:col-span-3 flex flex-col gap-4 min-h-0 overflow-hidden">
               {navigator}
               <InstructionsPanel 
                 level={currentLevel}
                 onShowSolution={() => setIsSolutionModalOpen(true)} 
               />
             </aside>
-            <div className="lg:col-span-9 flex flex-col min-h-0">
+            <div className="lg:col-span-9 flex flex-col min-h-0 overflow-hidden">
                 <TabbedCodeEditor files={files} onFilesChange={setFiles} graphData={graphData} />
             </div>
           </>
@@ -323,7 +325,7 @@ export default function App() {
         </div>
       </header>
       
-      <main className="grid grid-cols-1 lg:grid-cols-12 gap-4 flex-grow min-h-0">
+      <main className="grid grid-cols-1 lg:grid-cols-12 gap-4 flex-grow min-h-0 overflow-hidden">
         {renderBody()}
       </main>
 
