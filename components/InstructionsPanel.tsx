@@ -48,7 +48,7 @@ const InstructionsPanel: React.FC<InstructionsPanelProps> = ({ level, onShowSolu
     <div className="flex flex-col flex-grow bg-slate-800/50 rounded-lg border border-slate-700 overflow-hidden">
       <div className="flex-grow p-4 lg:p-6 overflow-y-auto">
         <div 
-          className={`prose ${isDocMode ? 'prose-base lg:prose-lg' : 'prose-sm'} prose-invert max-w-none text-slate-300 [&_h4]:text-slate-100 [&_h4]:font-semibold [&_h4]:mb-4 [&_p]:mb-6 [&_img]:rounded-lg [&_img]:shadow-md [&_img]:my-6 [&_pre]:bg-[#0d1117] [&_pre]:border [&_pre]:border-slate-700 [&_pre]:rounded-lg [&_pre]:p-4 [&_pre]:my-6 [&_pre_code]:bg-transparent [&_code:not(pre_>_code)]:text-amber-400 [&_code:not(pre_>_code)]:font-semibold [&_code:not(pre_>_code)]:bg-transparent [&_code:not(pre_>_code)]:p-0`}
+          className={`prose ${isDocMode ? 'prose-base lg:prose-lg' : 'prose-sm'} prose-invert max-w-none text-slate-300 [&_h4]:text-slate-100 [&_h4]:font-semibold [&_h4]:mb-4 [&_p]:mb-6 [&_img]:rounded-lg [&_img]:shadow-md [&_img]:my-6 [&_pre]:bg-[#0d1117] [&_pre]:border [&_pre]:border-slate-700 [&_pre]:rounded-lg [&_pre]:p-4 [&_pre]:my-6 [&_pre]:overflow-x-auto [&_pre]:max-w-full [&_pre_code]:bg-transparent [&_pre_code]:whitespace-pre [&_pre_code]:text-xs [&_code:not(pre_>_code)]:text-amber-400 [&_code:not(pre_>_code)]:font-semibold [&_code:not(pre_>_code)]:bg-transparent [&_code:not(pre_>_code)]:p-0`}
           dangerouslySetInnerHTML={{ __html: level.description }} 
         />
       </div>
