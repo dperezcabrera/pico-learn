@@ -1,6 +1,6 @@
 # pico-learn
 
-Interactive, in-browser Python learning environment for the [pico-framework](https://github.com/dperezcabrera/pico-boot) ecosystem.
+Interactive, in-browser Python learning environment for the [pico-boot](https://github.com/dperezcabrera/pico-boot) ecosystem.
 
 Write and run Python code directly in the browser using [Pyodide](https://pyodide.org/) — no installation required.
 
