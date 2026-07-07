@@ -171,6 +171,7 @@ export default function App() {
   
   const renderTitle = (title: string) => {
     if (!title) return 'Interactive Runner';
+    if (!title.includes('[')) return title;
     const match = title.match(/^(.*)\[(.*)\](.*)$/);
     if (match) {
       const [, prefix, highlight, suffix] = match;
