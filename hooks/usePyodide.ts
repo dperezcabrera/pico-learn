@@ -18,6 +18,7 @@ export const usePyodide = () => {
   const [isInstalling, setIsInstalling] = useState(false);
   
   const installedPackagesRef = useRef<Set<string>>(new Set());
+  const pinsRef = useRef<Record<string, string> | null>(null);
   const isInitializingRef = useRef(false);
   
   const initPyodide = async () => {
@@ -76,16 +77,25 @@ export const usePyodide = () => {
 
   const installPackages = async (packages: string[]) => {
     if (!pyodide) return;
-    
+
     const newPackages = packages.filter(p => !installedPackagesRef.current.has(p));
     if (newPackages.length === 0) return;
 
     setIsInstalling(true);
     setOutput(prev => prev + `> Installing packages: ${newPackages.join(', ')}...\n`);
-    
+
     try {
+      // pins.json freezes the pico-* versions the lessons are validated
+      // against (scripts/course-qa.py runs the same pins in CI)
+      if (!pinsRef.current) {
+        pinsRef.current = await fetch(`${import.meta.env.BASE_URL}pins.json`)
+          .then(r => (r.ok ? r.json() : {}))
+          .catch(() => ({}));
+      }
+      const pins: Record<string, string> = pinsRef.current ?? {};
+      const pinned = newPackages.map(p => (pins[p] ? `${p}==${pins[p]}` : p));
       const micropip = pyodide.pyimport('micropip');
-      await micropip.install(newPackages);
+      await micropip.install(pinned);
       newPackages.forEach(p => installedPackagesRef.current.add(p));
       setOutput(prev => prev + `\n> Installation complete.\n`);
     } catch (error: any) {

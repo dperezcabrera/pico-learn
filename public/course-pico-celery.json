@@ -38,10 +38,14 @@
         },
         {
           "name": "test_tasks.py",
-          "content": "from tasks import MathTasks\n\ndef test_add_has_task_meta():\n    meta = getattr(MathTasks.add, '_pico_celery_method_meta', None)\n    assert meta is not None, \"add() is missing @task decorator\"\n    assert meta.name == \"math.add\"\n\ndef test_multiply_has_task_meta():\n    meta = getattr(MathTasks.multiply, '_pico_celery_method_meta', None)\n    assert meta is not None, \"multiply() is missing @task decorator\"\n    assert meta.name == \"math.multiply\"\n"
+          "content": "from tasks import MathTasks\n\ndef test_add_has_task_meta():\n    meta = getattr(MathTasks.add, '_pico_celery_method_meta', None)\n    assert meta is not None, \"add() is missing @task decorator\"\n    assert meta[\"name\"] == \"math.add\"\n\ndef test_multiply_has_task_meta():\n    meta = getattr(MathTasks.multiply, '_pico_celery_method_meta', None)\n    assert meta is not None, \"multiply() is missing @task decorator\"\n    assert meta[\"name\"] == \"math.multiply\"\n"
         }
       ],
-      "packages": ["pico-ioc", "pico-celery", "pytest"],
+      "packages": [
+        "pico-ioc",
+        "pico-celery",
+        "pytest"
+      ],
       "hints": [
         "Import `task` from `pico_celery` — it is already imported for you.",
         "Place `@task(name=\"math.add\")` directly above the `async def add(...)` method.",
@@ -63,10 +67,14 @@
         },
         {
           "name": "test_client.py",
-          "content": "from client import MathClient\n\ndef test_class_has_celery_decorator():\n    assert getattr(MathClient, '_pico_celery_meta', None) is not None, \\\n        \"MathClient is missing @celery class decorator\"\n\ndef test_add_has_send_task_meta():\n    meta = getattr(MathClient.add, '_pico_celery_method_meta', None)\n    assert meta is not None, \"add() is missing @send_task decorator\"\n    assert meta.name == \"math.add\"\n\ndef test_multiply_has_send_task_meta():\n    meta = getattr(MathClient.multiply, '_pico_celery_method_meta', None)\n    assert meta is not None, \"multiply() is missing @send_task decorator\"\n    assert meta.name == \"math.multiply\"\n"
+          "content": "from client import MathClient\n\ndef test_class_has_celery_decorator():\n    assert getattr(MathClient, '_pico_meta', None) is not None, \\\n        \"MathClient is missing @celery class decorator\"\n\ndef test_add_has_send_task_meta():\n    meta = getattr(MathClient.add, '_pico_celery_sender_meta', None)\n    assert meta is not None, \"add() is missing @send_task decorator\"\n    assert meta[\"name\"] == \"math.add\"\n\ndef test_multiply_has_send_task_meta():\n    meta = getattr(MathClient.multiply, '_pico_celery_sender_meta', None)\n    assert meta is not None, \"multiply() is missing @send_task decorator\"\n    assert meta[\"name\"] == \"math.multiply\"\n"
         }
       ],
-      "packages": ["pico-ioc", "pico-celery", "pytest"],
+      "packages": [
+        "pico-ioc",
+        "pico-celery",
+        "pytest"
+      ],
       "hints": [
         "The `@celery` decorator goes on the class itself, above `class MathClient:`.",
         "`@send_task(name=\"math.add\")` goes above the `async def add(...)` method.",
@@ -96,10 +104,14 @@
         },
         {
           "name": "test_tasks.py",
-          "content": "import pico_ioc as pico\nimport tasks\n\ndef test_email_tasks_has_template_service():\n    pico.init(modules=[tasks])\n    email_tasks = pico.get(tasks.EmailTasks)\n    assert email_tasks.template_service is not None, \\\n        \"TemplateService was not injected\"\n    assert isinstance(email_tasks.template_service, tasks.TemplateService)\n\ndef test_template_service_renders():\n    pico.init(modules=[tasks])\n    ts = pico.get(tasks.TemplateService)\n    result = ts.render(\"welcome\", email=\"test@example.com\")\n    assert \"welcome\" in result\n    assert \"test@example.com\" in result\n"
+          "content": "import pico_ioc as pico\nimport tasks\n\ndef test_email_tasks_has_template_service():\n    container = pico.init(modules=[tasks])\n    email_tasks = container.get(tasks.EmailTasks)\n    assert email_tasks.template_service is not None, \\\n        \"TemplateService was not injected\"\n    assert isinstance(email_tasks.template_service, tasks.TemplateService)\n\ndef test_template_service_renders():\n    container = pico.init(modules=[tasks])\n    ts = container.get(tasks.TemplateService)\n    result = ts.render(\"welcome\", email=\"test@example.com\")\n    assert \"welcome\" in result\n    assert \"test@example.com\" in result\n"
         }
       ],
-      "packages": ["pico-ioc", "pico-celery", "pytest"],
+      "packages": [
+        "pico-ioc",
+        "pico-celery",
+        "pytest"
+      ],
       "hints": [
         "The `TemplateService` class needs to be registered with pico-ioc so it can be injected.",
         "Add `@component` from `pico_ioc` above the `class TemplateService:` line.",
