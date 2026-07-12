@@ -56,6 +56,8 @@ export default function App() {
       { name: 'Learn pico-sqlalchemy', url: 'course-pico-sqlalchemy.json' },
       { name: 'Learn pico-pydantic', url: 'course-pico-pydantic.json' },
       { name: 'Learn pico-celery', url: 'course-pico-celery.json' },
+      { name: 'Testing pico applications', url: 'course-pico-testing.json' },
+      { name: 'Resilience and operations', url: 'course-pico-resilience.json' },
   ];
 
   const loadCourse = useCallback(async (url: string) => {

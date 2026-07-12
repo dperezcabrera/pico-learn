@@ -1,0 +1,115 @@
+{
+  "title": "Testing pico applications",
+  "date": "2026-07-12",
+  "levels": [
+    {
+      "id": 0,
+      "type": "cover",
+      "title": "Testing pico applications",
+      "description": "Fast, isolated tests for pico apps with the pico-testing pytest plugin.",
+      "files": [],
+      "packages": []
+    },
+    {
+      "id": 100,
+      "type": "toc",
+      "title": "Table of Contents",
+      "description": "Select a level to begin.",
+      "files": [],
+      "packages": []
+    },
+    {
+      "id": 1,
+      "type": "doc",
+      "title": "Why isolation is the default",
+      "description": "<h4>The shared-venv trap</h4><p>Every pico plugin installed in your environment is auto-discovered by <code>pico_boot.init()</code>. That is great in production and terrible in tests: a suite that passes on your machine can fail on a colleague's just because they have one more pico package installed - or worse, pass for the wrong reason.</p><p>The <strong>pico-testing</strong> plugin closes that hole by default. Installing it activates a pytest plugin (no conftest wiring) that sets <code>PICO_BOOT_AUTO_PLUGINS=false</code> for every test, so a container only ever contains what the test asked for.</p><p>It also ships two fixtures:</p><ul><li><code>make_container(*modules, config=None, boot=False)</code> - builds containers and shuts them all down on teardown, newest first.</li><li><code>make_client(container)</code> - a FastAPI <code>TestClient</code> with the lifespan running (needs a local terminal: the browser runtime has no threads).</li></ul>",
+      "files": [],
+      "packages": []
+    },
+    {
+      "id": 2,
+      "type": "lab",
+      "title": "Containers from a fixture",
+      "description": "<h4>make_container</h4><p>The <code>make_container</code> fixture builds a container from explicit modules and config, and guarantees shutdown on teardown - no <code>try/finally</code> in your tests, no leaked containers between tests.</p><p>A plain dict passed as <code>config</code> is wrapped in <code>configuration(DictSource(...))</code> for you. Complete the second test: build the container with a config that flips the greeting style to <code>loud</code>.</p>",
+      "files": [
+        {
+          "name": "app.py",
+          "content": "from pico_ioc import component, configured\nfrom dataclasses import dataclass\n\n@configured(target=\"self\", prefix=\"greeting\", mapping=\"tree\")\n@dataclass\nclass GreetingSettings:\n    style: str = \"plain\"\n\n@component\nclass Greeter:\n    def __init__(self, settings: GreetingSettings):\n        self._settings = settings\n\n    def greet(self, name: str) -> str:\n        if self._settings.style == \"loud\":\n            return f\"HELLO, {name.upper()}!\"\n        return f\"Hello, {name}.\"\n"
+        },
+        {
+          "name": "test_main.py",
+          "content": "import app\n\ndef test_greets_plainly_by_default(make_container):\n    container = make_container(app)\n    assert container.get(app.Greeter).greet(\"pico\") == \"Hello, pico.\"\n\ndef test_greets_loudly_with_config(make_container):\n    # 👈 pass config={\"greeting\": {\"style\": \"loud\"}} to make_container\n    container = make_container(app)\n    assert container.get(app.Greeter).greet(\"pico\") == \"HELLO, PICO!\"\n"
+        }
+      ],
+      "solution": {
+        "test_main.py": "import app\n\ndef test_greets_plainly_by_default(make_container):\n    container = make_container(app)\n    assert container.get(app.Greeter).greet(\"pico\") == \"Hello, pico.\"\n\ndef test_greets_loudly_with_config(make_container):\n    container = make_container(app, config={\"greeting\": {\"style\": \"loud\"}})\n    assert container.get(app.Greeter).greet(\"pico\") == \"HELLO, PICO!\"\n"
+      },
+      "hints": [
+        "make_container accepts config= as a plain dict; the prefix is the settings prefix."
+      ],
+      "packages": [
+        "pico-ioc",
+        "pico-testing"
+      ]
+    },
+    {
+      "id": 3,
+      "type": "lab",
+      "title": "Declare the module under test once",
+      "description": "<h4>The pico_module ini option</h4><p>Almost every test in a project boots the same package. Since pico-testing 0.2.0 you declare it once under <code>[tool.pytest.ini_options]</code> and <code>make_container()</code> prepends it to every call: <code>make_container()</code> boots the package alone, <code>make_container(extra)</code> boots both.</p><p>Set <code>pico_module = \"app\"</code> in <code>pyproject.toml</code> so the test passes without naming the module.</p>",
+      "files": [
+        {
+          "name": "pyproject.toml",
+          "content": "[tool.pytest.ini_options]\n# 👈 declare: pico_module = \"app\"\n"
+        },
+        {
+          "name": "app.py",
+          "content": "from pico_ioc import component, configured\nfrom dataclasses import dataclass\n\n@configured(target=\"self\", prefix=\"greeting\", mapping=\"tree\")\n@dataclass\nclass GreetingSettings:\n    style: str = \"plain\"\n\n@component\nclass Greeter:\n    def __init__(self, settings: GreetingSettings):\n        self._settings = settings\n\n    def greet(self, name: str) -> str:\n        if self._settings.style == \"loud\":\n            return f\"HELLO, {name.upper()}!\"\n        return f\"Hello, {name}.\"\n"
+        },
+        {
+          "name": "test_main.py",
+          "content": "from app import Greeter\n\ndef test_module_under_test_is_implicit(make_container):\n    assert make_container().get(Greeter).greet(\"pico\") == \"Hello, pico.\"\n"
+        }
+      ],
+      "solution": {
+        "pyproject.toml": "[tool.pytest.ini_options]\npico_module = \"app\"\n"
+      },
+      "hints": [
+        "The value is the importable module name, exactly as you would pass it to init(modules=[...])."
+      ],
+      "packages": [
+        "pico-ioc",
+        "pico-testing"
+      ]
+    },
+    {
+      "id": 4,
+      "type": "lab",
+      "title": "Opting back into auto-discovery",
+      "description": "<h4>The pico_auto_plugins marker</h4><p>Isolation is enforced through the <code>PICO_BOOT_AUTO_PLUGINS</code> environment variable: the plugin sets it to <code>false</code> for every test. A test that genuinely verifies entry-point discovery - and only that kind of test - opts back in with <code>@pytest.mark.pico_auto_plugins</code>.</p><p>Mark the second test so both pass.</p>",
+      "files": [
+        {
+          "name": "test_main.py",
+          "content": "import os\nimport pytest\n\ndef test_isolated_by_default():\n    assert os.environ[\"PICO_BOOT_AUTO_PLUGINS\"] == \"false\"\n\n# 👈 add @pytest.mark.pico_auto_plugins\ndef test_discovery_allowed_when_marked():\n    assert \"PICO_BOOT_AUTO_PLUGINS\" not in os.environ\n"
+        }
+      ],
+      "solution": {
+        "test_main.py": "import os\nimport pytest\n\ndef test_isolated_by_default():\n    assert os.environ[\"PICO_BOOT_AUTO_PLUGINS\"] == \"false\"\n\n@pytest.mark.pico_auto_plugins\ndef test_discovery_allowed_when_marked():\n    assert \"PICO_BOOT_AUTO_PLUGINS\" not in os.environ\n"
+      },
+      "hints": [
+        "The marker is registered by the plugin itself; no import beyond pytest is needed."
+      ],
+      "packages": [
+        "pico-testing"
+      ]
+    },
+    {
+      "id": 5,
+      "type": "doc",
+      "title": "HTTP tests and teardown guarantees",
+      "description": "<h4>make_client</h4><p>With pico-fastapi installed, <code>make_client(container)</code> wraps the container's app in a <code>TestClient</code> with the lifespan actually running - so request-scoped controllers, startup hooks and shutdown wiring behave exactly as under uvicorn:</p><pre><code>def test_endpoint(make_container, make_client):\\n    container = make_container(\"pico_fastapi\", config={\"fastapi\": {\"title\": \"t\"}})\\n    client = make_client(container)\\n    assert client.get(\"/ping\").status_code == 200</code></pre><p>Closing the client fires the pico-fastapi lifespan shutdown AND the fixture shuts the container down again - a double shutdown that is safe because <code>PicoContainer.shutdown()</code> is idempotent since pico-ioc 2.3.3. This exact sequence was the root cause of a real teardown hang; the fixture bakes the correct pattern in.</p><p><code>TestClient</code> uses threads, so this fixture needs a real terminal - it does not run in this browser environment. See the <a href=\"https://github.com/dperezcabrera/pico-examples\">pico-examples</a> repository for complete suites using it.</p>",
+      "files": [],
+      "packages": []
+    }
+  ]
+}

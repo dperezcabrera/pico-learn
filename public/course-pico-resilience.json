@@ -1,0 +1,106 @@
+{
+  "title": "Resilience and operations",
+  "date": "2026-07-12",
+  "levels": [
+    {
+      "id": 0,
+      "type": "cover",
+      "title": "Resilience and operations",
+      "description": "Retries, circuit breakers and hot config reload with pico-resilience.",
+      "files": [],
+      "packages": []
+    },
+    {
+      "id": 100,
+      "type": "toc",
+      "title": "Table of Contents",
+      "description": "Select a level to begin.",
+      "files": [],
+      "packages": []
+    },
+    {
+      "id": 1,
+      "type": "lab",
+      "title": "Absorbing failures with @retryable",
+      "description": "<h4>Retry as a decorator</h4><p>Transient failures (a busy gateway, a flaky feed) should be invisible to callers. <code>@retryable</code> re-invokes the method until it succeeds or attempts run out, and only for the exception types you list in <code>retry_on</code> - everything else propagates immediately.</p><p>The feed below fails twice before every success. Add the decorator so the service call succeeds and the caller never notices.</p>",
+      "files": [
+        {
+          "name": "app.py",
+          "content": "from pico_ioc import component\nfrom pico_resilience import retryable\n\nclass QuoteUnavailable(Exception):\n    pass\n\n@component\nclass FlakyFeed:\n    \"\"\"Fails twice after every success: attempt 1 and 2 raise, attempt 3 works.\"\"\"\n\n    def __init__(self):\n        self.calls = 0\n\n    def spot_price(self) -> float:\n        self.calls += 1\n        if self.calls % 3 != 0:\n            raise QuoteUnavailable(\"feed hiccup\")\n        return 101.25\n\n@component\nclass QuoteService:\n    def __init__(self, feed: FlakyFeed):\n        self._feed = feed\n\n    # 👈 add @retryable(max_attempts=3, retry_on=(QuoteUnavailable,))\n    def quote(self) -> dict:\n        return {\"spot\": self._feed.spot_price()}\n"
+        },
+        {
+          "name": "main.py",
+          "content": "import pico_ioc as pico\nfrom pico_ioc import DictSource, configuration\nimport app\n\nCONFIG = {\"resilience\": {\"enabled\": True}}\ncontainer = pico.init(\n    modules=[\"pico_resilience\", \"pico_ioc.event_bus\", app],\n    config=configuration(DictSource(CONFIG)),\n)\n\nservice = container.get(app.QuoteService)\nresult = service.quote()\nfeed = container.get(app.FlakyFeed)\n\nprint(f\"quote: {result}\")\nprint(f\"attempts underneath: {feed.calls}\")\nassert result == {\"spot\": 101.25}\nassert feed.calls == 3, \"expected 2 absorbed failures + 1 success\"\nprint(\"retry absorbed the hiccups\")\n"
+        }
+      ],
+      "solution": {
+        "app.py": "from pico_ioc import component\nfrom pico_resilience import retryable\n\nclass QuoteUnavailable(Exception):\n    pass\n\n@component\nclass FlakyFeed:\n    \"\"\"Fails twice after every success: attempt 1 and 2 raise, attempt 3 works.\"\"\"\n\n    def __init__(self):\n        self.calls = 0\n\n    def spot_price(self) -> float:\n        self.calls += 1\n        if self.calls % 3 != 0:\n            raise QuoteUnavailable(\"feed hiccup\")\n        return 101.25\n\n@component\nclass QuoteService:\n    def __init__(self, feed: FlakyFeed):\n        self._feed = feed\n\n    @retryable(max_attempts=3, retry_on=(QuoteUnavailable,))\n    def quote(self) -> dict:\n        return {\"spot\": self._feed.spot_price()}\n"
+      },
+      "hints": [
+        "Import retryable from pico_resilience (already imported) and stack it on quote().",
+        "retry_on takes a tuple of exception types."
+      ],
+      "packages": [
+        "pico-ioc",
+        "pico-resilience"
+      ]
+    },
+    {
+      "id": 2,
+      "type": "lab",
+      "title": "Failing fast with @circuit_breaker",
+      "description": "<h4>Stop hammering a dead dependency</h4><p>Retry helps with hiccups; it makes outages worse. A circuit breaker counts consecutive failures and, past <code>failure_threshold</code>, rejects calls instantly with <code>CircuitOpenError</code> - the dependency gets air, your threads get their time back.</p><p>Run the lab: after three failing calls the breaker opens, and the fourth call never reaches the feed (its call counter stays frozen).</p>",
+      "files": [
+        {
+          "name": "app.py",
+          "content": "from pico_ioc import component\nfrom pico_resilience import circuit_breaker\n\nclass FeedDown(Exception):\n    pass\n\n@component\nclass DeadFeed:\n    def __init__(self):\n        self.calls = 0\n\n    def spot_price(self) -> float:\n        self.calls += 1\n        raise FeedDown(\"connection refused\")\n\n@component\nclass QuoteService:\n    def __init__(self, feed: DeadFeed):\n        self._feed = feed\n\n    @circuit_breaker(failure_threshold=3, reset_timeout_seconds=60)\n    def quote(self) -> dict:\n        return {\"spot\": self._feed.spot_price()}\n"
+        },
+        {
+          "name": "main.py",
+          "content": "import pico_ioc as pico\nfrom pico_ioc import DictSource, configuration\nfrom pico_resilience import CircuitOpenError\nimport app\n\ncontainer = pico.init(\n    modules=[\"pico_resilience\", \"pico_ioc.event_bus\", app],\n    config=configuration(DictSource({\"resilience\": {\"enabled\": True}})),\n)\n\nservice = container.get(app.QuoteService)\nfeed = container.get(app.DeadFeed)\n\nfor attempt in range(3):\n    try:\n        service.quote()\n    except app.FeedDown:\n        print(f\"attempt {attempt + 1}: feed down (breaker counting)\")\n\ncalls_when_open = feed.calls\ntry:\n    service.quote()\nexcept CircuitOpenError as e:\n    print(f\"breaker open: {e}\")\n\nassert feed.calls == calls_when_open, \"an open breaker must not call the feed\"\nprint(f\"feed calls frozen at {feed.calls}\")\n"
+        }
+      ],
+      "hints": [
+        "CircuitOpenError is raised by the breaker itself; the feed is never invoked once open."
+      ],
+      "packages": [
+        "pico-ioc",
+        "pico-resilience"
+      ]
+    },
+    {
+      "id": 3,
+      "type": "lab",
+      "title": "Hot reload: policies change while running",
+      "description": "<h4>refresh_config()</h4><p>Resilience policies follow live configuration. Mutate the config source and call <code>container.refresh_config()</code>: it returns the set of changed prefixes and the interceptors pick the new values up immediately - no restart. With <code>resilience.enabled = false</code> the same flaky call now fails on the first attempt.</p><p>Complete the marked line to re-enable resilience at the end.</p>",
+      "files": [
+        {
+          "name": "app.py",
+          "content": "from pico_ioc import component\nfrom pico_resilience import retryable\n\nclass QuoteUnavailable(Exception):\n    pass\n\n@component\nclass FlakyFeed:\n    \"\"\"Fails twice after every success: attempt 1 and 2 raise, attempt 3 works.\"\"\"\n\n    def __init__(self):\n        self.calls = 0\n\n    def spot_price(self) -> float:\n        self.calls += 1\n        if self.calls % 3 != 0:\n            raise QuoteUnavailable(\"feed hiccup\")\n        return 101.25\n\n@component\nclass QuoteService:\n    def __init__(self, feed: FlakyFeed):\n        self._feed = feed\n\n    @retryable(max_attempts=3, retry_on=(QuoteUnavailable,))\n    def quote(self) -> dict:\n        return {\"spot\": self._feed.spot_price()}\n"
+        },
+        {
+          "name": "main.py",
+          "content": "import pico_ioc as pico\nfrom pico_ioc import DictSource, configuration\nimport app\n\nCONFIG = {\"resilience\": {\"enabled\": True}}\ncontainer = pico.init(\n    modules=[\"pico_resilience\", \"pico_ioc.event_bus\", app],\n    config=configuration(DictSource(CONFIG)),\n)\nservice = container.get(app.QuoteService)\nfeed = container.get(app.FlakyFeed)\n\nprint(\"con retry:\", service.quote(), f\"({feed.calls} intentos)\")\n\nCONFIG[\"resilience\"][\"enabled\"] = False\nchanged = container.refresh_config()\nprint(f\"changed: {sorted(changed)}\")\nassert changed == frozenset({\"resilience\"})\n\nbefore = feed.calls\ntry:\n    service.quote()\nexcept app.QuoteUnavailable:\n    print(f\"sin retry: fallo en {feed.calls - before} intento\")\nassert feed.calls == before + 1\n\nCONFIG[\"resilience\"][\"enabled\"] = True\n# 👈 call container.refresh_config() again so retry protects the next call\nprint(\"con retry otra vez:\", service.quote())\n"
+        }
+      ],
+      "solution": {
+        "main.py": "import pico_ioc as pico\nfrom pico_ioc import DictSource, configuration\nimport app\n\nCONFIG = {\"resilience\": {\"enabled\": True}}\ncontainer = pico.init(\n    modules=[\"pico_resilience\", \"pico_ioc.event_bus\", app],\n    config=configuration(DictSource(CONFIG)),\n)\nservice = container.get(app.QuoteService)\nfeed = container.get(app.FlakyFeed)\n\nprint(\"con retry:\", service.quote(), f\"({feed.calls} intentos)\")\n\nCONFIG[\"resilience\"][\"enabled\"] = False\nchanged = container.refresh_config()\nprint(f\"changed: {sorted(changed)}\")\nassert changed == frozenset({\"resilience\"})\n\nbefore = feed.calls\ntry:\n    service.quote()\nexcept app.QuoteUnavailable:\n    print(f\"sin retry: fallo en {feed.calls - before} intento\")\nassert feed.calls == before + 1\n\nCONFIG[\"resilience\"][\"enabled\"] = True\ncontainer.refresh_config()\nprint(\"con retry otra vez:\", service.quote())\n"
+      },
+      "hints": [
+        "refresh_config() re-reads the sources and notifies subscribers; resilience listens for its prefix."
+      ],
+      "packages": [
+        "pico-ioc",
+        "pico-resilience"
+      ]
+    },
+    {
+      "id": 4,
+      "type": "doc",
+      "title": "Operating it: actuator, probes and refresh over HTTP",
+      "description": "<h4>From library to operations</h4><p>In a deployed service the same mechanics are driven over HTTP by <a href=\"https://github.com/dperezcabrera/pico-actuator\">pico-actuator</a>:</p><ul><li><code>POST /actuator/refresh</code> is the HTTP face of <code>refresh_config()</code>: change the config source, hit the endpoint, and the response lists the changed prefixes - the previous lab, operable from a terminal.</li><li><code>/actuator/health</code> aggregates health indicators; wire one to business state (queue depth, broker connectivity) and your load balancer stops routing to a saturated instance before it fails.</li><li><code>/actuator/metrics</code> serves the prometheus default registry, shared with pico-otel.</li></ul><p>Runnable, tested versions of both patterns live in <a href=\"https://github.com/dperezcabrera/pico-examples\">pico-examples</a>: <code>runtime-config</code> (hot reload through the actuator, with the failure mode asserted) and <code>observability-service</code> (health driven by business state, metrics and traces).</p>",
+      "files": [],
+      "packages": []
+    }
+  ]
+}

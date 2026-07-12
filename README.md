@@ -17,6 +17,10 @@ Write and run Python code directly in the browser using [Pyodide](https://pyodid
 | Learn pico-sqlalchemy | 6 | AppBase, @repository, @query, @transactional, pagination |
 | Learn pico-pydantic | 5 | @validate, dict-to-model, ValidationFailedError |
 | Learn pico-celery | 5 | @task, @send_task, worker/client pattern |
+| Testing pico applications | 5 | pico-testing plugin, make_container, pico_module, isolation marker |
+| Resilience and operations | 4 | @retryable, @circuit_breaker, hot config reload, actuator operations |
+
+Every lab runs green against the pinned wheels in `public/pins.json`; the `course-qa` workflow enforces it on each push (`python scripts/course-qa.py`).
 
 ## Run locally
 

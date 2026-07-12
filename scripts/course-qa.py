@@ -54,7 +54,9 @@ def run_lab(course: str, level: dict) -> tuple[bool, str]:
             capture_output=True,
             text=True,
             timeout=120,
-            env={"PATH": "/usr/bin:/bin", "PICO_BOOT_AUTO_PLUGINS": "false", "HOME": tmp},
+            # no PICO_BOOT_AUTO_PLUGINS here: isolation comes from the
+            # pico-testing plugin, and the marker lesson asserts on the var
+            env={"PATH": "/usr/bin:/bin", "HOME": tmp},
         )
         tail = (proc.stdout + proc.stderr).strip().splitlines()[-12:]
         return proc.returncode == 0, "\n".join(tail)
