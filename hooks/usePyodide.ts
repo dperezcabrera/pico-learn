@@ -1,107 +1,132 @@
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { LevelFile } from '../types';
 
-// Pyodide is loaded from a CDN in index.html, so we can expect it on the window object.
-declare global {
-  interface Window {
-    loadPyodide: () => Promise<any>;
-  }
-}
+type Pending = { resolve: (value: any) => void; reject: (reason: any) => void };
 
+/** Thrown at in-flight work when the worker is torn down on purpose. */
+class Discarded extends Error {}
+
+/**
+ * Drives Pyodide inside a Web Worker.
+ *
+ * Two things fall out of that choice. A lesson that loops forever no longer
+ * freezes the tab - the worker is terminated and rebuilt. And switching course
+ * gets a genuinely empty interpreter: micropip never uninstalls, and
+ * pico_boot.init() discovers plugins from the entry points of everything
+ * installed, so a package left behind by an earlier course would be booted by
+ * a later one.
+ */
 export const usePyodide = () => {
-  const [pyodide, setPyodide] = useState<any>(null);
-  const [isLoading, setIsLoading] = useState(false); // Start as false, init is now on-demand
+  const [isLoading, setIsLoading] = useState(false);
   const [output, setOutput] = useState('');
   const [graphData, setGraphData] = useState<any>(null);
   const [isExecuting, setIsExecuting] = useState(false);
   const [isInstalling, setIsInstalling] = useState(false);
-  
-  const installedPackagesRef = useRef<Set<string>>(new Set());
-  const pinsRef = useRef<Record<string, string> | null>(null);
-  const isInitializingRef = useRef(false);
-  const environmentRef = useRef<string | null>(null);
+  const [isReady, setIsReady] = useState(false);
 
-  /**
-   * Bind the interpreter to one environment (a course). micropip never
-   * uninstalls, and pico_boot.init() discovers plugins from the entry points of
-   * everything installed - so a package left behind by an earlier course would
-   * be booted by a later one. Switching environments throws the interpreter
-   * away instead; the next lab gets a fresh one with nothing in it.
-   */
+  const workerRef = useRef<Worker | null>(null);
+  const pendingRef = useRef<Map<number, Pending>>(new Map());
+  const nextIdRef = useRef(1);
+  const pinsRef = useRef<Record<string, string> | null>(null);
+  const environmentRef = useRef<string | null>(null);
+  const bootingRef = useRef<Promise<void> | null>(null);
+
+  const disposeWorker = useCallback((reason: string) => {
+    workerRef.current?.terminate();
+    workerRef.current = null;
+    bootingRef.current = null;
+    pendingRef.current.forEach(({ reject }) => reject(new Discarded(reason)));
+    pendingRef.current.clear();
+    setIsReady(false);
+    setIsExecuting(false);
+    setIsInstalling(false);
+  }, []);
+
+  const spawnWorker = useCallback(() => {
+    const worker = new Worker(`${import.meta.env.BASE_URL}pyodide-worker.js`);
+    worker.onmessage = (event: MessageEvent) => {
+      const data = event.data;
+      if (data.type === 'stdout' || data.type === 'stderr') {
+        setOutput(prev => prev + data.text);
+        return;
+      }
+      if (data.type === 'graph') {
+        try {
+          setGraphData(JSON.parse(data.json));
+        } catch (e) {
+          console.error('Failed to parse graph data', e);
+          setOutput(prev => prev + `\n[ERROR] Failed to parse graph data.\n`);
+        }
+        return;
+      }
+      const pending = pendingRef.current.get(data.id);
+      if (!pending) return;
+      pendingRef.current.delete(data.id);
+      data.ok ? pending.resolve(data) : pending.reject(new Error(data.error));
+    };
+    worker.onerror = (event) => {
+      console.error('Pyodide worker failed:', event.message);
+      setOutput(prev => prev + `\n[ERROR] ${event.message}\n`);
+      disposeWorker('worker crashed');
+    };
+    workerRef.current = worker;
+    return worker;
+  }, [disposeWorker]);
+
+  const send = useCallback((type: string, payload?: any): Promise<any> => {
+    const worker = workerRef.current;
+    if (!worker) return Promise.reject(new Error('interpreter is not running'));
+    const id = nextIdRef.current++;
+    return new Promise((resolve, reject) => {
+      pendingRef.current.set(id, { resolve, reject });
+      worker.postMessage({ id, type, payload });
+    });
+  }, []);
+
+  const initPyodide = useCallback(async () => {
+    if (workerRef.current || bootingRef.current) return bootingRef.current ?? undefined;
+    setIsLoading(true);
+    const booting = (async () => {
+      try {
+        spawnWorker();
+        await send('boot');
+        setIsReady(true);
+      } catch (error: any) {
+        // A boot cancelled by a course switch is not a failure.
+        if (!(error instanceof Discarded)) {
+          console.error('Failed to initialize Pyodide:', error);
+          setOutput('Failed to initialize Pyodide. See console for details.');
+          disposeWorker('boot failed');
+        }
+      } finally {
+        setIsLoading(false);
+        bootingRef.current = null;
+      }
+    })();
+    bootingRef.current = booting;
+    return booting;
+  }, [disposeWorker, send, spawnWorker]);
+
+  /** Bind the interpreter to one environment (a course); switching throws it away. */
   const setEnvironment = useCallback((key: string) => {
     if (environmentRef.current === key) return;
     environmentRef.current = key;
-    installedPackagesRef.current.clear();
-    isInitializingRef.current = false;
-    setPyodide(null);
+    disposeWorker('environment changed');
     setOutput('');
     setGraphData(null);
-  }, []);
+  }, [disposeWorker]);
 
-  const initPyodide = async () => {
-      // Prevent re-initialization if already loaded, loading, or an init call is in progress
-      if (pyodide || isLoading || isInitializingRef.current) {
-        return;
-      }
-      isInitializingRef.current = true;
-      setIsLoading(true);
-      try {
-        const pyodideInstance = await window.loadPyodide();
-        
-        const stdoutCallback = (str: string) => {
-            const graphPrefix = '__GRAPH_DATA__:';
-            const lines = str.trim().split('\n');
-            let consoleOutput = '';
-            let detectedGraphJson = null;
+  /** Kill a run in progress - the only way out of a loop that never ends. */
+  const cancelRun = useCallback(() => {
+    if (!workerRef.current) return;
+    disposeWorker('cancelled');
+    setOutput(prev => prev + '\n> Execution stopped.\n');
+  }, [disposeWorker]);
 
-            for (const line of lines) {
-                if (line.startsWith(graphPrefix)) {
-                    detectedGraphJson = line.substring(graphPrefix.length);
-                } else if (line.trim()) { // Avoid adding empty lines
-                    consoleOutput += line + '\n';
-                }
-            }
-            
-            if (consoleOutput) {
-                setOutput(prev => prev + consoleOutput);
-            }
-
-            if (detectedGraphJson) {
-                try {
-                    setGraphData(JSON.parse(detectedGraphJson));
-                } catch (e) {
-                    console.error("Failed to parse graph data", e);
-                    setOutput(prev => prev + `\n[ERROR] Failed to parse graph data.\n`);
-                }
-            }
-        };
-
-        pyodideInstance.setStdout({ batched: stdoutCallback });
-        pyodideInstance.setStderr({ batched: (str: string) => setOutput(prev => prev + str + '\n') });
-
-        await pyodideInstance.loadPackage('micropip');
-        console.log("Pyodide and micropip loaded successfully.");
-
-        setPyodide(pyodideInstance);
-      } catch (error) {
-        console.error("Failed to initialize Pyodide:", error);
-        setOutput("Failed to initialize Pyodide. See console for details.");
-      } finally {
-        isInitializingRef.current = false;
-        setIsLoading(false);
-      }
-  };
-
-  const installPackages = async (packages: string[]) => {
-    if (!pyodide) return;
-
-    const newPackages = packages.filter(p => !installedPackagesRef.current.has(p));
-    if (newPackages.length === 0) return;
-
+  const installPackages = useCallback(async (packages: string[]) => {
+    if (!workerRef.current) return;
     setIsInstalling(true);
-    setOutput(prev => prev + `> Installing packages: ${newPackages.join(', ')}...\n`);
-
     try {
       // pins.json freezes the pico-* versions the lessons are validated
       // against (scripts/course-qa.py runs the same pins in CI)
@@ -110,77 +135,48 @@ export const usePyodide = () => {
           .then(r => (r.ok ? r.json() : {}))
           .catch(() => ({}));
       }
-      const pins: Record<string, string> = pinsRef.current ?? {};
-      const pinned = newPackages.map(p => (pins[p] ? `${p}==${pins[p]}` : p));
-      const micropip = pyodide.pyimport('micropip');
-      await micropip.install(pinned);
-      newPackages.forEach(p => installedPackagesRef.current.add(p));
-      setOutput(prev => prev + `\n> Installation complete.\n`);
+      const result = await send('install', { packages, pins: pinsRef.current ?? {} });
+      if (result.installed?.length) {
+        setOutput(prev => prev + `> Installed: ${result.installed.join(', ')}\n`);
+      }
     } catch (error: any) {
-      console.error("Failed to install packages:", error);
+      if (error instanceof Discarded) return;
+      console.error('Failed to install packages:', error);
       setOutput(prev => prev + `\n> Error installing packages: ${error.message}\n`);
     } finally {
       setIsInstalling(false);
     }
-  };
+  }, [send]);
 
-  const runCode = async (files: LevelFile[]): Promise<boolean> => {
-    if (!pyodide) return false;
-    
+  const runCode = useCallback(async (files: LevelFile[]): Promise<boolean> => {
+    if (!workerRef.current) return false;
     setIsExecuting(true);
     setOutput('> Executing code...\n');
-    setGraphData(null); // Clear graph on new run
-    
+    setGraphData(null);
     try {
-      const moduleNames = files.map(f => f.name.replace('.py', ''));
-      await pyodide.runPythonAsync(`
-        import sys
-        modules_to_unload = ${JSON.stringify(moduleNames)}
-        for module in modules_to_unload:
-            if module in sys.modules:
-                del sys.modules[module]
-      `);
-
-      files.forEach(file => {
-        pyodide.FS.writeFile(file.name, file.content);
-      });
-      
-      const testFile = files.find(f => f.name.startsWith('test_'));
-      const mainFile = files.find(f => f.name === 'main.py');
-
-      if (testFile) {
-        setOutput(prev => prev + `\n> Running tests in ${testFile.name}...\n`);
-        const pytest = pyodide.pyimport('pytest');
-        const pytestArgs = pyodide.toPy(['-v', testFile.name]);
-        const exitCode = await pytest.main(pytestArgs, null);
-        return exitCode === 0;
-      } else if (mainFile) {
-        setOutput(prev => prev + `\n> Running ${mainFile.name}...\n\n`);
-        const mainContent = pyodide.FS.readFile(mainFile.name, { encoding: 'utf8' });
-        await pyodide.runPythonAsync(mainContent);
-        return true;
-      } else {
-        setOutput(prev => prev + 'No entrypoint found (e.g., main.py or test_*.py)');
-        return false;
-      }
-      
+      const result = await send('run', { files });
+      if (result.detail) setOutput(prev => prev + result.detail);
+      return !!result.passed;
     } catch (error: any) {
-      console.error("Error running Python code:", error);
-      setOutput(prev => prev + `\n\n--- PYTHON ERROR ---\n${error.message}`);
+      // Stop/course switch already told the user what happened.
+      if (!(error instanceof Discarded)) {
+        setOutput(prev => prev + `\n\n--- PYTHON ERROR ---\n${error.message}`);
+      }
       return false;
     } finally {
       setIsExecuting(false);
     }
-  };
-  
-  const clearOutput = () => {
+  }, [send]);
+
+  const clearOutput = useCallback(() => {
     setOutput('');
     setGraphData(null);
-  };
+  }, []);
 
   return {
     initPyodide,
     setEnvironment,
+    cancelRun,
     isLoading,
     isExecuting,
     isInstalling,
@@ -189,6 +185,6 @@ export const usePyodide = () => {
     installPackages,
     runCode,
     clearOutput,
-    isReady: !!pyodide
+    isReady,
   };
 };

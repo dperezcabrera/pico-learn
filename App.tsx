@@ -14,6 +14,7 @@ export default function App() {
   const {
     initPyodide,
     setEnvironment,
+    cancelRun,
     isLoading: isPyodideLoading,
     isExecuting, 
     isInstalling, 
@@ -318,6 +319,15 @@ export default function App() {
                 >
                     {isExecuting || isInstalling ? <SpinnerIcon /> : <PlayIcon />}
                     <span>Run</span>
+                </button>
+            )}
+            {levelType === 'lab' && isExecuting && (
+                <button
+                    onClick={cancelRun}
+                    className="flex items-center gap-2 px-4 py-2 font-semibold text-white bg-red-700 rounded-md shadow-lg hover:bg-red-600 transition-colors duration-200"
+                    aria-label="Stop execution"
+                >
+                    <span>Stop</span>
                 </button>
             )}
             <button
