@@ -30,7 +30,7 @@
         },
         {
           "name": "main.py",
-          "content": "import asyncio\n\nimport httpx\nimport pico_ioc as pico\nimport pico_fastapi\nimport controllers\nfrom fastapi import FastAPI\n\ncontainer = pico.init(modules=[pico_fastapi, controllers])\n\n# Controllers are request-scoped: exercise the endpoint through the app\napp = container.get(FastAPI)\n\nasync def call():\n    transport = httpx.ASGITransport(app=app)\n    async with httpx.AsyncClient(transport=transport, base_url=\"http://app\") as client:\n        return await client.get(\"/api/health\")\n\nresponse = asyncio.run(call())\nprint(f\"GET /api/health -> {response.status_code}\")\nprint(response.json())\nassert response.json() == {\"status\": \"ok\"}\n"
+          "content": "import asyncio\n\nimport httpx\nimport pico_ioc as pico\nimport pico_fastapi\nimport controllers\nfrom fastapi import FastAPI\n\n# A real app uses pico_boot.init(modules=[controllers]): pico_fastapi is\n# auto-discovered. The lab lists it so it only loads what this lesson needs.\ncontainer = pico.init(modules=[pico_fastapi, controllers])\n\n# Controllers are request-scoped: exercise the endpoint through the app\napp = container.get(FastAPI)\n\nasync def call():\n    transport = httpx.ASGITransport(app=app)\n    async with httpx.AsyncClient(transport=transport, base_url=\"http://app\") as client:\n        return await client.get(\"/api/health\")\n\nresponse = asyncio.run(call())\nprint(f\"GET /api/health -> {response.status_code}\")\nprint(response.json())\nassert response.json() == {\"status\": \"ok\"}\n"
         }
       ],
       "packages": [
