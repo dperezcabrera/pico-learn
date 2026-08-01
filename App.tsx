@@ -49,15 +49,15 @@ export default function App() {
   }, []);
 
   const PRESET_COURSES = [
-      { name: 'The Philosophy of DI in Python', url: 'course-philosophy.json' },
-      { name: 'Learn pico-ioc', url: 'course-pico-ioc.json' },
-      { name: 'Advanced pico-ioc Patterns', url: 'course-pico-ioc-advanced.json' },
-      { name: 'Learn pico-fastapi', url: 'course-pico-fastapi.json' },
-      { name: 'Learn pico-sqlalchemy', url: 'course-pico-sqlalchemy.json' },
-      { name: 'Learn pico-pydantic', url: 'course-pico-pydantic.json' },
-      { name: 'Learn pico-celery', url: 'course-pico-celery.json' },
-      { name: 'Testing pico applications', url: 'course-pico-testing.json' },
-      { name: 'Resilience and operations', url: 'course-pico-resilience.json' },
+      { name: 'The Philosophy of DI in Python', url: 'course-philosophy.json', blurb: 'Dependency injection from first principles, in plain Python.' },
+      { name: 'Learn pico-ioc', url: 'course-pico-ioc.json', blurb: 'Components, injection, scopes and protocols.' },
+      { name: 'Advanced pico-ioc Patterns', url: 'course-pico-ioc-advanced.json', blurb: 'Configuration, factories, interceptors and lifecycle hooks.' },
+      { name: 'Learn pico-fastapi', url: 'course-pico-fastapi.json', blurb: 'REST controllers with injected dependencies.' },
+      { name: 'Learn pico-sqlalchemy', url: 'course-pico-sqlalchemy.json', blurb: 'Declarative repositories, queries and transactions.' },
+      { name: 'Learn pico-pydantic', url: 'course-pico-pydantic.json', blurb: 'Automatic argument validation on service methods.' },
+      { name: 'Learn pico-celery', url: 'course-pico-celery.json', blurb: 'Background tasks and clients over a broker.' },
+      { name: 'Testing pico applications', url: 'course-pico-testing.json', blurb: 'Isolated containers and fixtures with the pytest plugin.' },
+      { name: 'Resilience and operations', url: 'course-pico-resilience.json', blurb: 'Retries, circuit breakers and hot config reload.' },
   ];
 
   const loadCourse = useCallback(async (url: string) => {
