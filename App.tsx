@@ -52,6 +52,7 @@ export default function App() {
   const PRESET_COURSES = [
       { name: 'The Philosophy of DI in Python', url: 'course-philosophy.json', blurb: 'Dependency injection from first principles, in plain Python.' },
       { name: 'Learn pico-ioc', url: 'course-pico-ioc.json', blurb: 'Components, injection, scopes and protocols.' },
+      { name: 'Bootstrapping with pico-boot', url: 'course-pico-boot.json', blurb: 'Plugin auto-discovery, your own entry point, and how to switch it off.' },
       { name: 'Advanced pico-ioc Patterns', url: 'course-pico-ioc-advanced.json', blurb: 'Configuration, factories, interceptors and lifecycle hooks.' },
       { name: 'Learn pico-fastapi', url: 'course-pico-fastapi.json', blurb: 'REST controllers with injected dependencies.' },
       { name: 'Learn pico-sqlalchemy', url: 'course-pico-sqlalchemy.json', blurb: 'Declarative repositories, queries and transactions.' },

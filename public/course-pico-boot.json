@@ -1,0 +1,114 @@
+{
+  "title": "Bootstrapping with pico-boot",
+  "date": "2026-08-01",
+  "levels": [
+    {
+      "id": 0,
+      "type": "cover",
+      "title": "Bootstrapping with pico-boot",
+      "description": "Plugin auto-discovery over pico-ioc: what it adds, how to publish your own module, and how to switch it off.",
+      "files": [],
+      "packages": []
+    },
+    {
+      "id": 100,
+      "type": "toc",
+      "title": "Table of Contents",
+      "description": "Select a level to begin.",
+      "files": [],
+      "packages": []
+    },
+    {
+      "id": 1,
+      "type": "lab",
+      "title": "What pico_boot.init() adds",
+      "description": "<h4>A drop-in replacement</h4><p><code>pico_boot.init()</code> takes exactly the same arguments as <code>pico_ioc.init()</code> and returns the same container. Before delegating it does three things: it normalises the module list, it imports every package that registers a <code>pico_boot.modules</code> entry point, and it collects any <code>PICO_SCANNERS</code> those modules expose.</p><p>It also registers <code>pico_ioc.event_bus</code> for you, because that bus is what carries configuration changes across the ecosystem - modules like pico-resilience fail fast without it.</p>",
+      "files": [
+        {
+          "name": "app.py",
+          "content": "from pico_ioc import component\n\n\n@component\nclass Greeter:\n    def greet(self, name: str) -> str:\n        return f\"hello, {name}\"\n"
+        },
+        {
+          "name": "main.py",
+          "content": "from pico_ioc import init, EventBus\nimport app\n\n# TODO: boot this app the way a pico app really boots. One import changes, and\n# the assertion below starts holding without you registering anything extra.\ncontainer = init(modules=[app])\n\nprint(container.get(app.Greeter).greet(\"pico\"))\nassert container.get(EventBus) is not None, \"the event bus should be wired\"\nprint(\"booted with\", len(container.keys()), \"keys\")\n"
+        }
+      ],
+      "solution": {
+        "main.py": "from pico_boot import init\nfrom pico_ioc import EventBus\nimport app\n\ncontainer = init(modules=[app])\n\nprint(container.get(app.Greeter).greet(\"pico\"))\nassert container.get(EventBus) is not None, \"the event bus should be wired\"\nprint(\"booted with\", len(container.keys()), \"keys\")\n"
+      },
+      "hints": [
+        "pico-boot exports an init() that takes exactly the same arguments as the pico-ioc one.",
+        "The event bus is core infra for pico-boot: it registers pico_ioc.event_bus on every boot, so hot config reload works.",
+        "from pico_boot import init, and leave the call as init(modules=[app])."
+      ],
+      "packages": [
+        "pico-ioc",
+        "pico-boot"
+      ]
+    },
+    {
+      "id": 2,
+      "type": "lab",
+      "title": "Publishing your own module as a plugin",
+      "description": "<h4>The entry point is the contract</h4><p>Auto-discovery is not a scan of your filesystem: pico-boot asks Python's package metadata for everything registered under the <code>pico_boot.modules</code> group. In a real project you declare it once in <code>pyproject.toml</code>:</p><pre><code>[project.entry-points.\"pico_boot.modules\"]\\nmy_plugin = \"my_plugin\"</code></pre><p>and the build back-end writes it into the installed distribution. Here you write that file by hand, so you can see exactly what a wheel leaves on disk - and why a module that is merely importable is not discovered.</p>",
+      "files": [
+        {
+          "name": "my_plugin.py",
+          "content": "from pico_ioc import component\n\n\n@component\nclass Stamp:\n    \"\"\"A component nobody is going to list in modules=[...].\"\"\"\n\n    def text(self) -> str:\n        return \"stamped by my_plugin\"\n"
+        },
+        {
+          "name": "main.py",
+          "content": "import importlib\nimport pathlib\n\nfrom pico_boot import init\nimport my_plugin\n\n# An installed package is not magic: it is a directory of metadata next to the\n# code. This is what `pip install` leaves behind, written by hand.\ndist = pathlib.Path(\"my_plugin-0.1.0.dist-info\")\ndist.mkdir(exist_ok=True)\n(dist / \"METADATA\").write_text(\"Metadata-Version: 2.1\\nName: my-plugin\\nVersion: 0.1.0\\n\")\n\n# TODO: declare the entry point that makes pico-boot pick this module up.\n# The group is \"pico_boot.modules\"; the file format is:\n#     [group]\n#     name = value\n(dist / \"entry_points.txt\").write_text(\"\")\n\nimportlib.invalidate_caches()\n\ncontainer = init(modules=[])\n\nassert my_plugin.Stamp in container.keys(), \"my_plugin was not discovered\"\nprint(container.get(my_plugin.Stamp).text())\nprint(\"discovered without listing it\")\n"
+        }
+      ],
+      "solution": {
+        "main.py": "import importlib\nimport pathlib\n\nfrom pico_boot import init\nimport my_plugin\n\n# An installed package is not magic: it is a directory of metadata next to the\n# code. This is what `pip install` leaves behind, written by hand.\ndist = pathlib.Path(\"my_plugin-0.1.0.dist-info\")\ndist.mkdir(exist_ok=True)\n(dist / \"METADATA\").write_text(\"Metadata-Version: 2.1\\nName: my-plugin\\nVersion: 0.1.0\\n\")\n\n(dist / \"entry_points.txt\").write_text(\n    \"[pico_boot.modules]\\nmy_plugin = my_plugin\\n\"\n)\n\nimportlib.invalidate_caches()\n\ncontainer = init(modules=[])\n\nassert my_plugin.Stamp in container.keys(), \"my_plugin was not discovered\"\nprint(container.get(my_plugin.Stamp).text())\nprint(\"discovered without listing it\")\n"
+      },
+      "hints": [
+        "The section header goes in square brackets, on its own line.",
+        "The left side is the entry point name, the right side the module to import.",
+        "[pico_boot.modules] on one line, then my_plugin = my_plugin."
+      ],
+      "packages": [
+        "pico-ioc",
+        "pico-boot"
+      ]
+    },
+    {
+      "id": 3,
+      "type": "lab",
+      "title": "Turning discovery off",
+      "description": "<h4>Why you would ever want less magic</h4><p>Auto-discovery boots every pico package installed in the environment. That is right for an application and wrong for a test suite: the same test would pass or fail depending on what else happens to be installed next to it.</p><p><code>PICO_BOOT_AUTO_PLUGINS</code> is the switch. Setting it to <code>false</code> keeps the rest of pico-boot's behaviour and skips the entry point sweep. This is exactly what the <a href=\"https://github.com/dperezcabrera/pico-testing\">pico-testing</a> plugin sets for every test, with a marker to opt back in per test.</p>",
+      "files": [
+        {
+          "name": "my_plugin.py",
+          "content": "from pico_ioc import component\n\n\n@component\nclass Stamp:\n    \"\"\"A component nobody is going to list in modules=[...].\"\"\"\n\n    def text(self) -> str:\n        return \"stamped by my_plugin\"\n"
+        },
+        {
+          "name": "main.py",
+          "content": "import importlib\nimport os\nimport pathlib\n\nimport my_plugin\n\ndist = pathlib.Path(\"my_plugin-0.1.0.dist-info\")\ndist.mkdir(exist_ok=True)\n(dist / \"METADATA\").write_text(\"Metadata-Version: 2.1\\nName: my-plugin\\nVersion: 0.1.0\\n\")\n(dist / \"entry_points.txt\").write_text(\"[pico_boot.modules]\\nmy_plugin = my_plugin\\n\")\nimportlib.invalidate_caches()\n\n# TODO: a test suite must not depend on which pico packages happen to be\n# installed next to it. Make this boot ignore them, without touching the\n# metadata above.\n\nfrom pico_boot import init\n\ncontainer = init(modules=[])\n\nassert my_plugin.Stamp not in container.keys(), \"discovery should be off here\"\nprint(\"keys:\", sorted(k.__name__ for k in container.keys() if isinstance(k, type)))\nprint(\"auto-discovery is off; only what you list gets in\")\n"
+        }
+      ],
+      "solution": {
+        "main.py": "import importlib\nimport os\nimport pathlib\n\nimport my_plugin\n\ndist = pathlib.Path(\"my_plugin-0.1.0.dist-info\")\ndist.mkdir(exist_ok=True)\n(dist / \"METADATA\").write_text(\"Metadata-Version: 2.1\\nName: my-plugin\\nVersion: 0.1.0\\n\")\n(dist / \"entry_points.txt\").write_text(\"[pico_boot.modules]\\nmy_plugin = my_plugin\\n\")\nimportlib.invalidate_caches()\n\nos.environ[\"PICO_BOOT_AUTO_PLUGINS\"] = \"false\"\n\nfrom pico_boot import init\n\ncontainer = init(modules=[])\n\nassert my_plugin.Stamp not in container.keys(), \"discovery should be off here\"\nprint(\"keys:\", sorted(k.__name__ for k in container.keys() if isinstance(k, type)))\nprint(\"auto-discovery is off; only what you list gets in\")\n"
+      },
+      "hints": [
+        "It is an environment variable, read when init() runs.",
+        "The values that disable it are 0, false, no and off.",
+        "os.environ[\"PICO_BOOT_AUTO_PLUGINS\"] = \"false\" before calling init()."
+      ],
+      "packages": [
+        "pico-ioc",
+        "pico-boot"
+      ]
+    },
+    {
+      "id": 4,
+      "type": "doc",
+      "title": "pico-ioc or pico-boot?",
+      "description": "<h4>Pick by how many integrations you have</h4><ul><li><strong>pico-ioc directly</strong> - one application, no pico integrations, or you want to control exactly what is scanned. Tests are the clearest case: list the modules and nothing else can leak in.</li><li><strong>pico-boot</strong> - as soon as you combine integrations (fastapi, sqlalchemy, celery, resilience). Listing them by hand is a maintenance tax and the event bus is easy to forget.</li></ul><h4>What it does before delegating</h4><ol><li>Normalises <code>modules</code>: strings are imported, duplicates dropped.</li><li>Adds <code>pico_ioc.event_bus</code>, always - it is core infra, not a plugin, so <code>PICO_BOOT_AUTO_PLUGINS</code> does not disable it.</li><li>Imports every <code>pico_boot.modules</code> entry point, unless discovery is off.</li><li>Collects <code>PICO_SCANNERS</code> from the loaded modules into <code>custom_scanners</code>.</li></ol><p>Every parameter of <code>pico_ioc.init()</code> works unchanged: <code>config</code>, <code>profiles</code>, <code>overrides</code>, <code>observers</code>, <code>custom_scanners</code>.</p>",
+      "files": [],
+      "packages": []
+    }
+  ]
+}

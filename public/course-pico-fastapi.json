@@ -30,14 +30,15 @@
         },
         {
           "name": "main.py",
-          "content": "import asyncio\n\nimport httpx\nimport pico_ioc as pico\nimport pico_fastapi\nimport controllers\nfrom fastapi import FastAPI\n\n# A real app uses pico_boot.init(modules=[controllers]): pico_fastapi is\n# auto-discovered. The lab lists it so it only loads what this lesson needs.\ncontainer = pico.init(modules=[pico_fastapi, controllers])\n\n# Controllers are request-scoped: exercise the endpoint through the app\napp = container.get(FastAPI)\n\nasync def call():\n    transport = httpx.ASGITransport(app=app)\n    async with httpx.AsyncClient(transport=transport, base_url=\"http://app\") as client:\n        return await client.get(\"/api/health\")\n\nresponse = asyncio.run(call())\nprint(f\"GET /api/health -> {response.status_code}\")\nprint(response.json())\nassert response.json() == {\"status\": \"ok\"}\n"
+          "content": "import asyncio\n\nimport httpx\nfrom pico_boot import init\nimport controllers\nfrom fastapi import FastAPI\n\n# pico_fastapi is discovered through its entry point: you list only yours.\ncontainer = init(modules=[controllers])\n\n# Controllers are request-scoped: exercise the endpoint through the app\napp = container.get(FastAPI)\n\nasync def call():\n    transport = httpx.ASGITransport(app=app)\n    async with httpx.AsyncClient(transport=transport, base_url=\"http://app\") as client:\n        return await client.get(\"/api/health\")\n\nresponse = asyncio.run(call())\nprint(f\"GET /api/health -> {response.status_code}\")\nprint(response.json())\nassert response.json() == {\"status\": \"ok\"}\n"
         }
       ],
       "packages": [
         "fastapi",
         "httpx",
         "pico-fastapi",
-        "pico-ioc"
+        "pico-ioc",
+        "pico-boot"
       ],
       "hints": [
         "The controller class needs a decorator to tell pico-fastapi it is a REST controller.",
@@ -94,14 +95,15 @@
         },
         {
           "name": "main.py",
-          "content": "import asyncio\n\nimport httpx\nimport pico_ioc as pico\nimport pico_fastapi\nimport services\nimport controllers\nfrom fastapi import FastAPI\n\ncontainer = pico.init(modules=[pico_fastapi, services, controllers])\napp = container.get(FastAPI)\n\nasync def call():\n    transport = httpx.ASGITransport(app=app)\n    async with httpx.AsyncClient(transport=transport, base_url=\"http://app\") as client:\n        return await client.get(\"/api/greet/World\")\n\nresponse = asyncio.run(call())\nprint(f\"Response: {response.json()}\")\n\n# The endpoint only works when GreetingService was injected into the controller\nassert response.status_code == 200, response.text\nassert response.json() == {\"message\": \"Hello, World! Welcome to pico-fastapi.\"}\n"
+          "content": "import asyncio\n\nimport httpx\nfrom pico_boot import init\nimport services\nimport controllers\nfrom fastapi import FastAPI\n\n# pico_fastapi is discovered through its entry point: you list only yours.\ncontainer = init(modules=[services, controllers])\napp = container.get(FastAPI)\n\nasync def call():\n    transport = httpx.ASGITransport(app=app)\n    async with httpx.AsyncClient(transport=transport, base_url=\"http://app\") as client:\n        return await client.get(\"/api/greet/World\")\n\nresponse = asyncio.run(call())\nprint(f\"Response: {response.json()}\")\n\n# The endpoint only works when GreetingService was injected into the controller\nassert response.status_code == 200, response.text\nassert response.json() == {\"message\": \"Hello, World! Welcome to pico-fastapi.\"}\n"
         }
       ],
       "packages": [
         "fastapi",
         "httpx",
         "pico-fastapi",
-        "pico-ioc"
+        "pico-ioc",
+        "pico-boot"
       ],
       "hints": [
         "The `__init__` method needs to accept a parameter so the container can inject the service.",

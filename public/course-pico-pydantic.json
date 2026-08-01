@@ -42,13 +42,14 @@
         },
         {
           "name": "main.py",
-          "content": "import pico_ioc as pico\nimport services\nimport schemas\nimport pico_pydantic\n\n# A real app uses pico_boot.init(modules=[services]): pico_pydantic is\n# auto-discovered. The lab lists it so it only loads what this lesson needs.\ncontainer = pico.init(modules=[pico_pydantic, services])\n\nservice = container.get(services.ItemService)\n\n# Passing a plain dict — @validate will coerce it into ItemData\nresult = service.add_item({\"name\": \"Widget\", \"price\": 9.99})\nprint(result)\n"
+          "content": "from pico_boot import init\nimport services\nimport schemas\n\n# pico_pydantic is discovered through its entry point: you list only yours.\ncontainer = init(modules=[services])\n\nservice = container.get(services.ItemService)\n\n# Passing a plain dict — @validate will coerce it into ItemData\nresult = service.add_item({\"name\": \"Widget\", \"price\": 9.99})\nprint(result)\n"
         }
       ],
       "packages": [
         "pico-ioc",
         "pico-pydantic",
-        "pydantic"
+        "pydantic",
+        "pico-boot"
       ],
       "hints": [
         "The <code>@validate</code> decorator is already imported from <code>pico_pydantic</code> in <code>services.py</code>.",
@@ -143,13 +144,14 @@
         },
         {
           "name": "main.py",
-          "content": "import pico_ioc as pico\nimport services\nimport schemas\nimport pico_pydantic\n\n# A real app uses pico_boot.init(modules=[services]): pico_pydantic is\n# auto-discovered. The lab lists it so it only loads what this lesson needs.\ncontainer = pico.init(modules=[pico_pydantic, services])\n\nsvc = container.get(services.PaymentService)\n\nprint(\"--- Valid payment ---\")\nresult = svc.process_payment({\"amount\": 42.50, \"currency\": \"USD\"})\nprint(f\"Result: {result}\")\n\nprint(\"\\n--- Invalid payment ---\")\ntry:\n    svc.process_payment({\"amount\": -10, \"currency\": \"USD\"})\nexcept Exception as e:\n    print(f\"Caught: {type(e).__name__}: {e}\")\n"
+          "content": "from pico_boot import init\nimport services\nimport schemas\n\n# pico_pydantic is discovered through its entry point: you list only yours.\ncontainer = init(modules=[services])\n\nsvc = container.get(services.PaymentService)\n\nprint(\"--- Valid payment ---\")\nresult = svc.process_payment({\"amount\": 42.50, \"currency\": \"USD\"})\nprint(f\"Result: {result}\")\n\nprint(\"\\n--- Invalid payment ---\")\ntry:\n    svc.process_payment({\"amount\": -10, \"currency\": \"USD\"})\nexcept Exception as e:\n    print(f\"Caught: {type(e).__name__}: {e}\")\n"
         }
       ],
       "packages": [
         "pico-ioc",
         "pico-pydantic",
-        "pydantic"
+        "pydantic",
+        "pico-boot"
       ],
       "hints": [
         "Add @intercepted_by(LoggingInterceptor) directly under @validate.",
