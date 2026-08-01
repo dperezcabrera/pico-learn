@@ -1,5 +1,5 @@
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { LevelFile } from '../types';
 
 // Pyodide is loaded from a CDN in index.html, so we can expect it on the window object.
@@ -20,7 +20,25 @@ export const usePyodide = () => {
   const installedPackagesRef = useRef<Set<string>>(new Set());
   const pinsRef = useRef<Record<string, string> | null>(null);
   const isInitializingRef = useRef(false);
-  
+  const environmentRef = useRef<string | null>(null);
+
+  /**
+   * Bind the interpreter to one environment (a course). micropip never
+   * uninstalls, and pico_boot.init() discovers plugins from the entry points of
+   * everything installed - so a package left behind by an earlier course would
+   * be booted by a later one. Switching environments throws the interpreter
+   * away instead; the next lab gets a fresh one with nothing in it.
+   */
+  const setEnvironment = useCallback((key: string) => {
+    if (environmentRef.current === key) return;
+    environmentRef.current = key;
+    installedPackagesRef.current.clear();
+    isInitializingRef.current = false;
+    setPyodide(null);
+    setOutput('');
+    setGraphData(null);
+  }, []);
+
   const initPyodide = async () => {
       // Prevent re-initialization if already loaded, loading, or an init call is in progress
       if (pyodide || isLoading || isInitializingRef.current) {
@@ -160,9 +178,10 @@ export const usePyodide = () => {
     setGraphData(null);
   };
 
-  return { 
+  return {
     initPyodide,
-    isLoading, 
+    setEnvironment,
+    isLoading,
     isExecuting,
     isInstalling,
     output,
@@ -170,6 +189,6 @@ export const usePyodide = () => {
     installPackages,
     runCode,
     clearOutput,
-    isReady: !!pyodide 
+    isReady: !!pyodide
   };
 };

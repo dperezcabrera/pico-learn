@@ -11,9 +11,10 @@ import { PlayIcon, SpinnerIcon, TrashIcon, SettingsIcon, ChevronRightIcon, Check
 import { Level, LevelFile, Course } from './types';
 
 export default function App() {
-  const { 
+  const {
     initPyodide,
-    isLoading: isPyodideLoading, 
+    setEnvironment,
+    isLoading: isPyodideLoading,
     isExecuting, 
     isInstalling, 
     output,
@@ -72,6 +73,9 @@ export default function App() {
       if (!data || !data.title || !Array.isArray(data.levels) || data.levels.length === 0) {
           throw new Error("Course data is invalid. Expected an object with 'title' and a non-empty 'levels' array.");
       }
+      // Each course gets its own interpreter, so packages from the previous one
+      // cannot be auto-discovered by this one.
+      setEnvironment(url);
       setCourseLevels(data.levels);
       setCourseTitle(data.title);
       setCurrentLevelId(data.levels[0].id);
@@ -83,7 +87,7 @@ export default function App() {
     } finally {
       setIsCourseLoading(false);
     }
-  }, []);
+  }, [setEnvironment]);
 
   useEffect(() => {
     loadCourse(PRESET_COURSES[0].url);
@@ -97,13 +101,15 @@ export default function App() {
 
   const levelType = currentLevel?.type ?? 'lab';
   
-  // Lazily initialize Pyodide only when a 'lab' level is accessed.
+  // Lazily initialize Pyodide only when a 'lab' level is accessed. isReady is a
+  // dependency because switching course drops the interpreter, and the next lab
+  // has to build a fresh one.
   useEffect(() => {
-    if (levelType === 'lab') {
+    if (levelType === 'lab' && !isReady) {
       initPyodide();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [levelType, initPyodide]);
+  }, [levelType, isReady]);
 
   useEffect(() => {
     if (currentLevel) {
@@ -359,7 +365,9 @@ export default function App() {
         isOpen={isSettingsOpen}
         onClose={() => setIsSettingsOpen(false)}
         onLoadCourse={loadCourse}
-        isLoading={isCourseLoading}
+        // Switching course tears the interpreter down, so it must not happen
+        // while a lab is still running in it.
+        isLoading={isCourseLoading || isExecuting || isInstalling}
         error={courseLoadingError}
         presets={PRESET_COURSES}
       />
