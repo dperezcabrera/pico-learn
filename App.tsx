@@ -59,6 +59,8 @@ export default function App() {
       { name: 'Learn pico-pydantic', url: 'course-pico-pydantic.json', blurb: 'Automatic argument validation on service methods.' },
       { name: 'Learn pico-celery', url: 'course-pico-celery.json', blurb: 'Background tasks and clients over a broker.' },
       { name: 'Testing pico applications', url: 'course-pico-testing.json', blurb: 'Isolated containers and fixtures with the pytest plugin.' },
+      { name: 'Caching with pico-caching', url: 'course-pico-caching.json', blurb: 'Memoise service methods: TTL, custom keys and invalidation.' },
+      { name: 'Operating with pico-actuator', url: 'course-pico-actuator.json', blurb: 'Health probes, build info and metrics over HTTP.' },
       { name: 'Resilience and operations', url: 'course-pico-resilience.json', blurb: 'Retries, circuit breakers and hot config reload.' },
   ];
 

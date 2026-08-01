@@ -1,0 +1,126 @@
+{
+  "title": "Operating a service with pico-actuator",
+  "date": "2026-08-01",
+  "levels": [
+    {
+      "id": 0,
+      "type": "cover",
+      "title": "Operating a service with pico-actuator",
+      "description": "Health probes, build info and metrics over HTTP: what an operator needs from a running service.",
+      "files": [],
+      "packages": []
+    },
+    {
+      "id": 100,
+      "type": "toc",
+      "title": "Table of Contents",
+      "description": "Select a level to begin.",
+      "files": [],
+      "packages": []
+    },
+    {
+      "id": 1,
+      "type": "lab",
+      "title": "Switching the actuator on",
+      "description": "<h4>Endpoints you did not write</h4><p>pico-actuator mounts a set of operational endpoints under <code>/actuator</code> on the same app pico-fastapi builds: <code>health</code>, <code>info</code>, <code>metrics</code> and <code>refresh</code>. It is auto-discovered like any pico module, so there is nothing to import; <code>ActuatorSettings</code> only decides whether the endpoints get mounted.</p><p>The labs drive it through FastAPI's <code>TestClient</code>, which runs the app in-process: the same requests a load balancer or a curl would send.</p>",
+      "files": [
+        {
+          "name": "controllers.py",
+          "content": "from pico_fastapi import controller, get\n\n\n@controller(prefix=\"/api\")\nclass OrdersController:\n    @get(\"/orders\")\n    async def orders(self):\n        return {\"orders\": []}\n"
+        },
+        {
+          "name": "main.py",
+          "content": "from fastapi import FastAPI\nfrom fastapi.testclient import TestClient\nfrom pico_boot import init\nfrom pico_ioc import DictSource, configuration\nimport controllers\n\ncontainer = init(\n    modules=[controllers],\n    config=configuration(DictSource({\n        \"fastapi\": {\"title\": \"orders\", \"version\": \"1.0.0\"},\n        # This deployment shipped with the probes switched off, so the platform\n        # has no way to tell whether the service is alive.\n        # TODO: turn them back on.\n        \"actuator\": {\"enabled\": False},\n    })),\n)\n\nclient = TestClient(container.get(FastAPI))\nhealth = client.get(\"/actuator/health\")\n\nprint(health.status_code, health.json())\nassert health.status_code == 200, f\"no health endpoint: {health.status_code}\"\nassert health.json()[\"status\"] == \"UP\"\nprint(\"the service can now say whether it is alive\")\n"
+        }
+      ],
+      "solution": {
+        "main.py": "from fastapi import FastAPI\nfrom fastapi.testclient import TestClient\nfrom pico_boot import init\nfrom pico_ioc import DictSource, configuration\nimport controllers\n\ncontainer = init(\n    modules=[controllers],\n    config=configuration(DictSource({\n        \"fastapi\": {\"title\": \"orders\", \"version\": \"1.0.0\"},\n        \"actuator\": {\"enabled\": True},\n    })),\n)\n\nclient = TestClient(container.get(FastAPI))\nhealth = client.get(\"/actuator/health\")\n\nprint(health.status_code, health.json())\nassert health.status_code == 200, f\"no health endpoint: {health.status_code}\"\nassert health.json()[\"status\"] == \"UP\"\nprint(\"the service can now say whether it is alive\")\n"
+      },
+      "hints": [
+        "ActuatorSettings binds the actuator prefix of the configuration.",
+        "Its first field decides whether the endpoints get mounted at all.",
+        "\"actuator\": {\"enabled\": True} next to the fastapi block."
+      ],
+      "packages": [
+        "pico-ioc",
+        "pico-boot",
+        "pico-fastapi",
+        "pico-actuator",
+        "fastapi",
+        "httpx"
+      ]
+    },
+    {
+      "id": 2,
+      "type": "lab",
+      "title": "Health that means something",
+      "description": "<h4>Liveness is not readiness</h4><p>A process that answers HTTP is not necessarily able to do its job. A <code>HealthIndicator</code> component contributes to <code>/actuator/health</code>: implement <code>check()</code> and return either a bool or a dict with a <code>status</code> key plus whatever detail helps whoever is paged.</p><p>If any indicator reports DOWN the endpoint answers <strong>503</strong>, which is what makes a load balancer take the instance out of rotation before it starts failing requests.</p>",
+      "files": [
+        {
+          "name": "app.py",
+          "content": "from pico_ioc import component\nfrom pico_actuator import HealthIndicator\n\n\n@component\nclass OrderQueue:\n    \"\"\"The business state a load balancer would want to know about.\"\"\"\n\n    def __init__(self):\n        self.depth = 0\n\n\n# TODO: report this queue's state at /actuator/health. Past 10 pending orders\n# the instance should be reported as DOWN so traffic stops arriving.\n@component\nclass QueueHealth:\n    def __init__(self, queue: OrderQueue):\n        self.queue = queue\n"
+        },
+        {
+          "name": "main.py",
+          "content": "from fastapi import FastAPI\nfrom fastapi.testclient import TestClient\nfrom pico_boot import init\nfrom pico_ioc import DictSource, configuration\nimport app\n\ncontainer = init(\n    modules=[app],\n    config=configuration(DictSource({\n        \"fastapi\": {\"title\": \"orders\", \"version\": \"1.0.0\"},\n        \"actuator\": {\"enabled\": True},\n    })),\n)\n\nclient = TestClient(container.get(FastAPI))\nprint(\"empty queue :\", client.get(\"/actuator/health\").json())\n\ncontainer.get(app.OrderQueue).depth = 42\nsaturated = client.get(\"/actuator/health\")\nprint(\"42 pending  :\", saturated.status_code, saturated.json())\n\nassert saturated.status_code == 503, f\"expected 503, got {saturated.status_code}\"\nassert saturated.json()[\"components\"][\"QueueHealth\"][\"depth\"] == 42\nprint(\"health follows business state, not just process liveness\")\n"
+        }
+      ],
+      "solution": {
+        "app.py": "from pico_ioc import component\nfrom pico_actuator import HealthIndicator\n\n\n@component\nclass OrderQueue:\n    \"\"\"The business state a load balancer would want to know about.\"\"\"\n\n    def __init__(self):\n        self.depth = 0\n\n\n@component\nclass QueueHealth(HealthIndicator):\n    def __init__(self, queue: OrderQueue):\n        self.queue = queue\n\n    def check(self):\n        return {\n            \"status\": \"UP\" if self.queue.depth < 10 else \"DOWN\",\n            \"depth\": self.queue.depth,\n        }\n"
+      },
+      "hints": [
+        "HealthIndicator is imported already; the class has to be one.",
+        "The method is check(), and it may return a dict with a status key.",
+        "return {\"status\": \"UP\" if self.queue.depth < 10 else \"DOWN\", \"depth\": self.queue.depth}"
+      ],
+      "packages": [
+        "pico-ioc",
+        "pico-boot",
+        "pico-fastapi",
+        "pico-actuator",
+        "fastapi",
+        "httpx"
+      ]
+    },
+    {
+      "id": 3,
+      "type": "lab",
+      "title": "Telling the world what is deployed",
+      "description": "<h4>/actuator/info</h4><p>An <code>InfoContributor</code> adds a fragment to the info document: implement <code>contribute()</code> and return a dict. Every contributor registered in the container is merged, so build metadata, feature flags and the config the service actually booted with can each come from their own component.</p><p>In a real deployment this is what tells you, from outside, which commit is running - the question you ask first when something behaves unexpectedly.</p>",
+      "files": [
+        {
+          "name": "app.py",
+          "content": "from pico_ioc import component\nfrom pico_actuator import InfoContributor\n\n\n# TODO: expose the build metadata below at /actuator/info, so an operator can\n# tell which commit is deployed without shelling into the container.\n@component\nclass BuildInfo:\n    COMMIT = \"9f2c1ab\"\n"
+        },
+        {
+          "name": "main.py",
+          "content": "from fastapi import FastAPI\nfrom fastapi.testclient import TestClient\nfrom pico_boot import init\nfrom pico_ioc import DictSource, configuration\nimport app\n\ncontainer = init(\n    modules=[app],\n    config=configuration(DictSource({\n        \"fastapi\": {\"title\": \"orders\", \"version\": \"1.0.0\"},\n        \"actuator\": {\"enabled\": True},\n    })),\n)\n\nclient = TestClient(container.get(FastAPI))\ninfo = client.get(\"/actuator/info\").json()\n\nprint(info)\nassert info.get(\"build\", {}).get(\"commit\") == app.BuildInfo.COMMIT, f\"nothing contributed: {info}\"\nprint(\"the deployed commit is one HTTP call away\")\n"
+        }
+      ],
+      "solution": {
+        "app.py": "from pico_ioc import component\nfrom pico_actuator import InfoContributor\n\n\n@component\nclass BuildInfo(InfoContributor):\n    COMMIT = \"9f2c1ab\"\n\n    def contribute(self):\n        return {\"build\": {\"commit\": self.COMMIT}}\n"
+      },
+      "hints": [
+        "The class has to implement the InfoContributor protocol.",
+        "Its method is contribute(), returning a dict that gets merged into the response.",
+        "def contribute(self): return {\"build\": {\"commit\": self.COMMIT}}"
+      ],
+      "packages": [
+        "pico-ioc",
+        "pico-boot",
+        "pico-fastapi",
+        "pico-actuator",
+        "fastapi",
+        "httpx"
+      ]
+    },
+    {
+      "id": 4,
+      "type": "doc",
+      "title": "Metrics and hot refresh",
+      "description": "<h4>The other two endpoints</h4><ul><li><code>/actuator/metrics</code> serves the default <code>prometheus_client</code> registry - the meeting point with <a href=\"https://github.com/dperezcabrera/pico-otel\">pico-otel</a>, which writes into that same registry. Without the extra it answers <strong>501</strong> instead of pretending: <code>pip install pico-actuator[metrics]</code>.</li><li><code>POST /actuator/refresh</code> is the HTTP face of <code>container.refresh_config()</code>: change the configuration source, call it, and the response lists the prefixes that changed. Modules that follow live configuration - pico-resilience, pico-caching - pick the new values up with no restart.</li></ul><p>A compose stack with Prometheus actually scraping this endpoint lives in <a href=\"https://github.com/dperezcabrera/pico-examples\">pico-examples</a>, asserted by a smoke test rather than described.</p>",
+      "files": [],
+      "packages": []
+    }
+  ]
+}

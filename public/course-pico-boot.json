@@ -104,6 +104,34 @@
     },
     {
       "id": 4,
+      "type": "lab",
+      "title": "Custom scanners: registering what pico-ioc would ignore",
+      "description": "<h4>PICO_SCANNERS</h4><p>A discovered module can also export <code>PICO_SCANNERS</code>, a list of <code>CustomScanner</code> instances. pico-boot collects them and passes them to <code>init(custom_scanners=[...])</code>, so a plugin can register components that carry no pico decorator at all - classes from a third-party library, or your own convention.</p><p>pico-ioc offers every object of every scanned module to each scanner, in two steps: <code>should_scan(obj)</code> decides whether the scanner wants it, and only then <code>scan(obj)</code> returns the <code>(key, provider, metadata)</code> triple that registers it.</p><p><strong>Watch out:</strong> <code>CustomScanner</code> is a <code>Protocol</code> and its methods have empty bodies. Subclass it, implement half the contract, and the inherited half quietly returns <code>None</code> - your scanner is never applied, and nothing is raised.</p>",
+      "files": [
+        {
+          "name": "my_plugin.py",
+          "content": "from pico_ioc import CustomScanner, ProviderMetadata\n\n\nclass Task:\n    \"\"\"Plain classes. No decorator, so the normal scan walks straight past them.\"\"\"\n\n    def run(self) -> str:\n        raise NotImplementedError\n\n\nclass Backup(Task):\n    task_name = \"backup\"\n\n    def run(self) -> str:\n        return \"backup done\"\n\n\nclass TaskScanner(CustomScanner):\n    \"\"\"Turns every class carrying task_name into a component.\"\"\"\n\n    # TODO: pico-ioc offers each object in the module to this scanner, but it is\n    # never turning any of them into components. Something in the protocol is\n    # missing - and it fails without raising anything.\n\n    def scan(self, obj):\n        return obj, (lambda cls=obj: cls()), ProviderMetadata(\n            key=obj,\n            provided_type=obj,\n            concrete_class=obj,\n            factory_class=None,\n            factory_method=None,\n            qualifiers=set(),\n            primary=False,\n            lazy=False,\n            infra=None,\n            pico_name=None,\n        )\n\n\nPICO_SCANNERS = [TaskScanner()]\n"
+        },
+        {
+          "name": "main.py",
+          "content": "import importlib\nimport pathlib\n\nfrom pico_boot import init\nimport my_plugin\n\ndist = pathlib.Path(\"my_plugin-0.1.0.dist-info\")\ndist.mkdir(exist_ok=True)\n(dist / \"METADATA\").write_text(\"Metadata-Version: 2.1\\nName: my-plugin\\nVersion: 0.1.0\\n\")\n(dist / \"entry_points.txt\").write_text(\"[pico_boot.modules]\\nmy_plugin = my_plugin\\n\")\nimportlib.invalidate_caches()\n\ncontainer = init(modules=[])\n\nassert my_plugin.Backup in container.keys(), \"the scanner registered nothing\"\nprint(container.get(my_plugin.Backup).run())\nprint(\"a custom scanner turned an undecorated class into a component\")\n"
+        }
+      ],
+      "solution": {
+        "my_plugin.py": "from pico_ioc import CustomScanner, ProviderMetadata\n\n\nclass Task:\n    \"\"\"Plain classes. No decorator, so the normal scan walks straight past them.\"\"\"\n\n    def run(self) -> str:\n        raise NotImplementedError\n\n\nclass Backup(Task):\n    task_name = \"backup\"\n\n    def run(self) -> str:\n        return \"backup done\"\n\n\nclass TaskScanner(CustomScanner):\n    \"\"\"Turns every class carrying task_name into a component.\"\"\"\n\n    def should_scan(self, obj):\n        return isinstance(obj, type) and hasattr(obj, \"task_name\")\n\n    def scan(self, obj):\n        return obj, (lambda cls=obj: cls()), ProviderMetadata(\n            key=obj,\n            provided_type=obj,\n            concrete_class=obj,\n            factory_class=None,\n            factory_method=None,\n            qualifiers=set(),\n            primary=False,\n            lazy=False,\n            infra=None,\n            pico_name=None,\n        )\n\n\nPICO_SCANNERS = [TaskScanner()]\n"
+      },
+      "hints": [
+        "The protocol has two methods; the scanner above implements one of them.",
+        "The missing one is asked first, and its job is to answer whether this scanner wants the object.",
+        "def should_scan(self, obj): return isinstance(obj, type) and hasattr(obj, \"task_name\")"
+      ],
+      "packages": [
+        "pico-ioc",
+        "pico-boot"
+      ]
+    },
+    {
+      "id": 5,
       "type": "doc",
       "title": "pico-ioc or pico-boot?",
       "description": "<h4>Pick by how many integrations you have</h4><ul><li><strong>pico-ioc directly</strong> - one application, no pico integrations, or you want to control exactly what is scanned. Tests are the clearest case: list the modules and nothing else can leak in.</li><li><strong>pico-boot</strong> - as soon as you combine integrations (fastapi, sqlalchemy, celery, resilience). Listing them by hand is a maintenance tax and the event bus is easy to forget.</li></ul><h4>What it does before delegating</h4><ol><li>Normalises <code>modules</code>: strings are imported, duplicates dropped.</li><li>Adds <code>pico_ioc.event_bus</code>, always - it is core infra, not a plugin, so <code>PICO_BOOT_AUTO_PLUGINS</code> does not disable it.</li><li>Imports every <code>pico_boot.modules</code> entry point, unless discovery is off.</li><li>Collects <code>PICO_SCANNERS</code> from the loaded modules into <code>custom_scanners</code>.</li></ol><p>Every parameter of <code>pico_ioc.init()</code> works unchanged: <code>config</code>, <code>profiles</code>, <code>overrides</code>, <code>observers</code>, <code>custom_scanners</code>.</p>",

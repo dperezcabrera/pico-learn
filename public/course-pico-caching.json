@@ -1,0 +1,138 @@
+{
+  "title": "Caching method results with pico-caching",
+  "date": "2026-08-01",
+  "levels": [
+    {
+      "id": 0,
+      "type": "cover",
+      "title": "Caching method results with pico-caching",
+      "description": "Memoise service methods through the container: TTL, custom keys, invalidation and the off switch.",
+      "files": [],
+      "packages": []
+    },
+    {
+      "id": 100,
+      "type": "toc",
+      "title": "Table of Contents",
+      "description": "Select a level to begin.",
+      "files": [],
+      "packages": []
+    },
+    {
+      "id": 1,
+      "type": "lab",
+      "title": "Your first @cacheable",
+      "description": "<h4>Memoisation as a decorator</h4><p><code>@cacheable</code> stores what a method returns and serves the stored value on the next call with the same arguments. It works on sync and async methods alike; an async method caches the awaited result, never the coroutine.</p><p>Nothing is imported by the caller and nothing changes at the call site: the interceptor sits between them, so the method keeps its plain signature and stays testable on its own.</p>",
+      "files": [
+        {
+          "name": "app.py",
+          "content": "from pico_ioc import component\nfrom pico_caching import cacheable\n\n\n@component\nclass PriceFeed:\n    \"\"\"Pretends to be a slow upstream: every call is a round trip you pay for.\"\"\"\n\n    def __init__(self):\n        self.calls = 0\n\n    # TODO: the same sku should not cost two round trips.\n    def price(self, sku: str) -> float:\n        self.calls += 1\n        return 10.0 + len(sku)\n"
+        },
+        {
+          "name": "main.py",
+          "content": "from pico_boot import init\nfrom pico_ioc import DictSource, configuration\nimport app\n\ncontainer = init(\n    modules=[app],\n    config=configuration(DictSource({\"caching\": {\"enabled\": True}})),\n)\n\nfeed = container.get(app.PriceFeed)\nprint(feed.price(\"abc\"), feed.price(\"abc\"), feed.price(\"zz\"))\n\nassert feed.calls == 2, f\"expected 2 upstream calls, got {feed.calls}\"\nprint(f\"three calls, {feed.calls} round trips\")\n"
+        }
+      ],
+      "solution": {
+        "app.py": "from pico_ioc import component\nfrom pico_caching import cacheable\n\n\n@component\nclass PriceFeed:\n    \"\"\"Pretends to be a slow upstream: every call is a round trip you pay for.\"\"\"\n\n    def __init__(self):\n        self.calls = 0\n\n    @cacheable\n    def price(self, sku: str) -> float:\n        self.calls += 1\n        return 10.0 + len(sku)\n"
+      },
+      "hints": [
+        "The decorator is already imported in app.py.",
+        "It works bare, without parentheses, when the defaults are fine.",
+        "@cacheable on the line above def price."
+      ],
+      "packages": [
+        "pico-ioc",
+        "pico-boot",
+        "pico-caching"
+      ]
+    },
+    {
+      "id": 2,
+      "type": "lab",
+      "title": "Choosing the cache key",
+      "description": "<h4>When the default key is too literal</h4><p>By default the entry is keyed by the arguments as they arrive, so <code>\"eur\"</code> and <code>\"EUR\"</code> are two entries holding the same answer - the cache works, and still misses.</p><p><code>@cacheable(key=...)</code> takes a callable that receives the method's arguments (without <code>self</code>) and returns the string to store under. Normalise there, and equivalent calls collapse into one entry.</p>",
+      "files": [
+        {
+          "name": "app.py",
+          "content": "from pico_ioc import component\nfrom pico_caching import cacheable\n\n\n@component\nclass Quotes:\n    def __init__(self):\n        self.calls = 0\n\n    # The default key is built from the arguments, so these two calls are\n    # different entries even though the answer is the same.\n    # TODO: make both spellings of the currency share one entry.\n    @cacheable\n    def rate(self, currency: str) -> float:\n        self.calls += 1\n        return 1.08\n"
+        },
+        {
+          "name": "main.py",
+          "content": "from pico_boot import init\nfrom pico_ioc import DictSource, configuration\nimport app\n\ncontainer = init(\n    modules=[app],\n    config=configuration(DictSource({\"caching\": {\"enabled\": True}})),\n)\n\nquotes = container.get(app.Quotes)\nprint(quotes.rate(\"eur\"), quotes.rate(\"EUR\"), quotes.rate(\"Eur\"))\n\nassert quotes.calls == 1, f\"expected one upstream call, got {quotes.calls}\"\nprint(\"three spellings, one cache entry\")\n"
+        }
+      ],
+      "solution": {
+        "app.py": "from pico_ioc import component\nfrom pico_caching import cacheable\n\n\n@component\nclass Quotes:\n    def __init__(self):\n        self.calls = 0\n\n    @cacheable(key=lambda currency: currency.upper())\n    def rate(self, currency: str) -> float:\n        self.calls += 1\n        return 1.08\n"
+      },
+      "hints": [
+        "@cacheable takes a key keyword argument: a callable returning the key.",
+        "It is called with the method arguments only - self is not passed to it.",
+        "@cacheable(key=lambda currency: currency.upper())"
+      ],
+      "packages": [
+        "pico-ioc",
+        "pico-boot",
+        "pico-caching"
+      ]
+    },
+    {
+      "id": 3,
+      "type": "lab",
+      "title": "Invalidation",
+      "description": "<h4>The hard part</h4><p>A cache is a promise that the answer has not changed. When it has, someone must say so. <code>CacheBackend</code> is a component like any other, so you can resolve it and act on the store directly: <code>get</code>, <code>set</code>, <code>delete</code> and <code>clear</code>.</p><p>The default implementation is <code>InMemoryCacheBackend</code>, bounded by <code>caching.max_entries</code>. Swapping it for a shared store is a matter of registering your own component that satisfies the same protocol.</p>",
+      "files": [
+        {
+          "name": "app.py",
+          "content": "from pico_ioc import component\nfrom pico_caching import cacheable\n\n\n@component\nclass Catalog:\n    def __init__(self):\n        self.calls = 0\n\n    @cacheable\n    def name(self, sku: str) -> str:\n        self.calls += 1\n        return f\"item-{sku}-v{self.calls}\"\n"
+        },
+        {
+          "name": "main.py",
+          "content": "from pico_boot import init\nfrom pico_ioc import DictSource, configuration\nfrom pico_caching import CacheBackend\nimport app\n\ncontainer = init(\n    modules=[app],\n    config=configuration(DictSource({\"caching\": {\"enabled\": True}})),\n)\n\ncatalog = container.get(app.Catalog)\nfirst = catalog.name(\"x\")\nassert catalog.name(\"x\") == first, \"the second read should be served from cache\"\n\n# The product was renamed upstream. The cache does not know that.\n# TODO: drop what is cached so the next read goes to the source again.\n\nsecond = catalog.name(\"x\")\nassert second != first, f\"still serving the stale value: {second}\"\nprint(f\"{first} -> {second}\")\nprint(\"invalidated, and only then did the source get asked again\")\n"
+        }
+      ],
+      "solution": {
+        "main.py": "from pico_boot import init\nfrom pico_ioc import DictSource, configuration\nfrom pico_caching import CacheBackend\nimport app\n\ncontainer = init(\n    modules=[app],\n    config=configuration(DictSource({\"caching\": {\"enabled\": True}})),\n)\n\ncatalog = container.get(app.Catalog)\nfirst = catalog.name(\"x\")\nassert catalog.name(\"x\") == first, \"the second read should be served from cache\"\n\n# The product was renamed upstream. The cache does not know that.\ncontainer.get(CacheBackend).clear()\n\nsecond = catalog.name(\"x\")\nassert second != first, f\"still serving the stale value: {second}\"\nprint(f\"{first} -> {second}\")\nprint(\"invalidated, and only then did the source get asked again\")\n"
+      },
+      "hints": [
+        "CacheBackend is registered in the container; resolve it like any component.",
+        "Its interface is get, set, delete and clear.",
+        "container.get(CacheBackend).clear()"
+      ],
+      "packages": [
+        "pico-ioc",
+        "pico-boot",
+        "pico-caching"
+      ]
+    },
+    {
+      "id": 4,
+      "type": "lab",
+      "title": "Turning it off from configuration",
+      "description": "<h4>An operational switch, not a code change</h4><p><code>CacheSettings</code> binds the <code>caching</code> prefix: <code>enabled</code>, <code>default_ttl_seconds</code> (300 by default) and <code>max_entries</code> (1024). With <code>enabled</code> false the interceptor steps aside and every call reaches the method, decorators untouched.</p><p>That is what you want in a test suite, and what you want in production the day the cache is serving something it should not - together with <code>POST /actuator/refresh</code> it flips without a restart.</p>",
+      "files": [
+        {
+          "name": "app.py",
+          "content": "from pico_ioc import component\nfrom pico_caching import cacheable\n\n\n@component\nclass Report:\n    def __init__(self):\n        self.calls = 0\n\n    @cacheable\n    def total(self) -> int:\n        self.calls += 1\n        return 42\n"
+        },
+        {
+          "name": "main.py",
+          "content": "from pico_boot import init\nfrom pico_ioc import DictSource, configuration\nimport app\n\n# A test run wants the real method every time, not yesterday's answer.\n# TODO: switch caching off from configuration, without touching app.py.\nCONFIG = {\"caching\": {\"enabled\": True}}\n\ncontainer = init(modules=[app], config=configuration(DictSource(CONFIG)))\n\nreport = container.get(app.Report)\nreport.total()\nreport.total()\n\nassert report.calls == 2, f\"caching still on: {report.calls} call(s)\"\nprint(f\"two calls, {report.calls} executions - the decorator stayed in place\")\n"
+        }
+      ],
+      "solution": {
+        "main.py": "from pico_boot import init\nfrom pico_ioc import DictSource, configuration\nimport app\n\n# A test run wants the real method every time, not yesterday's answer.\nCONFIG = {\"caching\": {\"enabled\": False}}\n\ncontainer = init(modules=[app], config=configuration(DictSource(CONFIG)))\n\nreport = container.get(app.Report)\nreport.total()\nreport.total()\n\nassert report.calls == 2, f\"caching still on: {report.calls} call(s)\"\nprint(f\"two calls, {report.calls} executions - the decorator stayed in place\")\n"
+      },
+      "hints": [
+        "The setting lives under the caching prefix in the config source.",
+        "You do not need to remove the decorator; the interceptor reads the setting.",
+        "\"caching\": {\"enabled\": False}"
+      ],
+      "packages": [
+        "pico-ioc",
+        "pico-boot",
+        "pico-caching"
+      ]
+    }
+  ]
+}
