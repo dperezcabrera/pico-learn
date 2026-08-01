@@ -38,7 +38,7 @@
         },
         {
           "name": "test_main.py",
-          "content": "import app\n\ndef test_greets_plainly_by_default(make_container):\n    container = make_container(app)\n    assert container.get(app.Greeter).greet(\"pico\") == \"Hello, pico.\"\n\ndef test_greets_loudly_with_config(make_container):\n    # 👈 pass config={\"greeting\": {\"style\": \"loud\"}} to make_container\n    container = make_container(app)\n    assert container.get(app.Greeter).greet(\"pico\") == \"HELLO, PICO!\"\n"
+          "content": "import app\n\ndef test_greets_plainly_by_default(make_container):\n    container = make_container(app)\n    assert container.get(app.Greeter).greet(\"pico\") == \"Hello, pico.\"\n\ndef test_greets_loudly_with_config(make_container):\n    # TODO: the assertion expects a shouting greeter. Configure it.\n    container = make_container(app)\n    assert container.get(app.Greeter).greet(\"pico\") == \"HELLO, PICO!\"\n"
         }
       ],
       "solution": {
@@ -60,7 +60,7 @@
       "files": [
         {
           "name": "pyproject.toml",
-          "content": "[tool.pytest.ini_options]\n# 👈 declare: pico_module = \"app\"\n"
+          "content": "[tool.pytest.ini_options]\n# TODO: declare the module under test here, so make_container() needs no\n# arguments in the test file.\n"
         },
         {
           "name": "app.py",
@@ -90,7 +90,7 @@
       "files": [
         {
           "name": "test_main.py",
-          "content": "import os\nimport pytest\n\ndef test_isolated_by_default():\n    assert os.environ[\"PICO_BOOT_AUTO_PLUGINS\"] == \"false\"\n\n# 👈 add @pytest.mark.pico_auto_plugins\ndef test_discovery_allowed_when_marked():\n    assert \"PICO_BOOT_AUTO_PLUGINS\" not in os.environ\n"
+          "content": "import os\nimport pytest\n\ndef test_isolated_by_default():\n    assert os.environ[\"PICO_BOOT_AUTO_PLUGINS\"] == \"false\"\n\n# TODO: this test wants auto-discovery back on, just for itself.\ndef test_discovery_allowed_when_marked():\n    assert \"PICO_BOOT_AUTO_PLUGINS\" not in os.environ\n"
         }
       ],
       "solution": {

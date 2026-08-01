@@ -30,7 +30,7 @@
         },
         {
           "name": "main.py",
-          "content": "from app import greet\n\n# 👈 Call greet() and print the result\nprint(\"Edit me!\")\n"
+          "content": "from app import greet\n\n# TODO: call greet() and show what it returns.\nprint(\"Edit me!\")\n"
         }
       ],
       "packages": [],
@@ -63,7 +63,7 @@
         },
         {
           "name": "test_main.py",
-          "content": "from app import greet\n\ndef test_greet():\n    assert greet(\"Test\") == \"Hello, Test!\"\n\n# 👈 Fix this failing test\ndef test_greet_fails():\n    assert greet(\"Fail\") == \"This will fail\"\n"
+          "content": "from app import greet\n\ndef test_greet():\n    assert greet(\"Test\") == \"Hello, Test!\"\n\n# TODO: this test fails. Run it, read the failure, fix the expectation.\ndef test_greet_fails():\n    assert greet(\"Fail\") == \"This will fail\"\n"
         }
       ],
       "packages": [
@@ -86,7 +86,7 @@
       "files": [
         {
           "name": "app.py",
-          "content": "from pico_ioc import component\n\n# 👈 Add the @component decorator here\nclass Greeter:\n    def greet(self, name: str) -> str:\n        return f\"Hello, {name}!\"\n"
+          "content": "from pico_ioc import component\n\n# TODO: make this class something the container can build and hand out.\nclass Greeter:\n    def greet(self, name: str) -> str:\n        return f\"Hello, {name}!\"\n"
         },
         {
           "name": "main.py",
@@ -98,7 +98,12 @@
       ],
       "solution": {
         "app.py": "from pico_ioc import component\n\n@component\nclass Greeter:\n    def greet(self, name: str) -> str:\n        return f\"Hello, {name}!\"\n"
-      }
+      },
+      "hints": [
+        "The decorator is already imported on the line above.",
+        "It goes on the line directly above the class statement.",
+        "@component"
+      ]
     },
     {
       "id": 5,
@@ -108,7 +113,7 @@
       "files": [
         {
           "name": "app.py",
-          "content": "from pico_ioc import component\n\n# 👈 Add decorator\nclass MessageFormatter:\n    def format(self, name: str) -> str:\n        return f\"Hello, {name}!\"\n\n# 👈 Add decorator\nclass Greeter:\n    def __init__(self, formatter: MessageFormatter):\n        self._formatter = formatter\n\n    def greet(self, name: str) -> str:\n        return self._formatter.format(name)\n"
+          "content": "from pico_ioc import component\n\n# TODO: Greeter asks for this by type, so the container must know it.\nclass MessageFormatter:\n    def format(self, name: str) -> str:\n        return f\"Hello, {name}!\"\n\n# TODO: and this one is what you resolve from the container.\nclass Greeter:\n    def __init__(self, formatter: MessageFormatter):\n        self._formatter = formatter\n\n    def greet(self, name: str) -> str:\n        return self._formatter.format(name)\n"
         },
         {
           "name": "main.py",
@@ -120,7 +125,12 @@
       ],
       "solution": {
         "app.py": "from pico_ioc import component\n\n@component\nclass MessageFormatter:\n    def format(self, name: str) -> str:\n        return f\"Hello, {name}!\"\n\n@component\nclass Greeter:\n    def __init__(self, formatter: MessageFormatter):\n        self._formatter = formatter\n\n    def greet(self, name: str) -> str:\n        return self._formatter.format(name)\n"
-      }
+      },
+      "hints": [
+        "Both classes need the same decorator that made Greeter resolvable in the previous lesson.",
+        "pico-ioc reads the constructor type hints to work out what to inject.",
+        "@component on both."
+      ]
     },
     {
       "id": 6,
@@ -130,7 +140,7 @@
       "files": [
         {
           "name": "app.py",
-          "content": "from pico_ioc import component\n\n@component(scope=\"singleton\")  # \"singleton\" is the default\nclass SingletonGreeter:\n    pass\n\n# 👈 Change the scope to prototype\n@component\nclass PrototypeGreeter:\n    pass\n"
+          "content": "from pico_ioc import component\n\n@component(scope=\"singleton\")  # \"singleton\" is the default\nclass SingletonGreeter:\n    pass\n\n# TODO: this one should hand out a new instance on every resolution.\n@component\nclass PrototypeGreeter:\n    pass\n"
         },
         {
           "name": "main.py",
@@ -143,7 +153,11 @@
       "solution": {
         "app.py": "from pico_ioc import component\n\n@component(scope=\"singleton\")  # \"singleton\" is the default\nclass SingletonGreeter:\n    pass\n\n# 👈 Change the scope to prototype\n@component(scope=\"prototype\")\nclass PrototypeGreeter:\n    pass\n"
       },
-      "hints": []
+      "hints": [
+        "@component takes a scope keyword argument.",
+        "The default is \"singleton\" - one shared instance for the whole container.",
+        "@component(scope=\"prototype\")"
+      ]
     },
     {
       "id": 7,
@@ -177,7 +191,7 @@
       "files": [
         {
           "name": "app.py",
-          "content": "from pico_ioc import component\nfrom typing import Protocol, runtime_checkable\n\n@runtime_checkable\nclass Formatter(Protocol):\n    def format(self, name: str) -> str:\n        ...\n\n@component\nclass EnglishFormatter: # Implements the Formatter protocol implicitly\n    def format(self, name: str) -> str:\n        return f\"Hello, {name}!\"\n\n@component\nclass Greeter:\n    # 👈 Change this to depend on the Formatter protocol\n    def __init__(self, formatter: EnglishFormatter):\n        self._formatter = formatter\n\n    def greet(self, name: str) -> str:\n        return self._formatter.format(name)\n"
+          "content": "from pico_ioc import component\nfrom typing import Protocol, runtime_checkable\n\n@runtime_checkable\nclass Formatter(Protocol):\n    def format(self, name: str) -> str:\n        ...\n\n@component\nclass EnglishFormatter: # Implements the Formatter protocol implicitly\n    def format(self, name: str) -> str:\n        return f\"Hello, {name}!\"\n\n@component\nclass Greeter:\n    # TODO: depend on the capability, not on one concrete implementation.\n    def __init__(self, formatter: EnglishFormatter):\n        self._formatter = formatter\n\n    def greet(self, name: str) -> str:\n        return self._formatter.format(name)\n"
         },
         {
           "name": "main.py",
@@ -189,7 +203,12 @@
       ],
       "solution": {
         "app.py": "from pico_ioc import component\nfrom typing import Protocol, runtime_checkable\n\n@runtime_checkable\nclass Formatter(Protocol):\n    def format(self, name: str) -> str:\n        ...\n\n@component\nclass EnglishFormatter: # Implements the Formatter protocol implicitly\n    def format(self, name: str) -> str:\n        return f\"Hello, {name}!\"\n\n@component\nclass Greeter:\n    # 👈 Change this to depend on the Formatter protocol\n    def __init__(self, formatter: Formatter):\n        self._formatter = formatter\n\n    def greet(self, name: str) -> str:\n        return self._formatter.format(name)\n"
-      }
+      },
+      "hints": [
+        "The Formatter protocol is declared above; use it as the type hint.",
+        "pico-ioc resolves the component that structurally satisfies the protocol.",
+        "def __init__(self, formatter: Formatter):"
+      ]
     },
     {
       "id": 9,
@@ -199,7 +218,7 @@
       "files": [
         {
           "name": "app.py",
-          "content": "from typing import Protocol, runtime_checkable\nfrom pico_ioc import component\n\n# 👈 Add the @runtime_checkable decorator\nclass Database(Protocol):\n    def get_user(self, user_id: int) -> str:\n        ...\n\n@component(scope=\"prototype\")\nclass RealDatabase:\n    def get_user(self, user_id: int) -> str:\n        print(f\"(DATABASE) Fetching user {user_id}\")\n        return f\"User {user_id}\"\n\n@component\nclass UserService:\n    def __init__(self, db: Database):\n        self._db = db\n\n    def fetch_user(self, user_id: int) -> str:\n        return self._db.get_user(user_id)\n"
+          "content": "from typing import Protocol, runtime_checkable\nfrom pico_ioc import component\n\n# TODO: isinstance() against this protocol must work at run time.\nclass Database(Protocol):\n    def get_user(self, user_id: int) -> str:\n        ...\n\n@component(scope=\"prototype\")\nclass RealDatabase:\n    def get_user(self, user_id: int) -> str:\n        print(f\"(DATABASE) Fetching user {user_id}\")\n        return f\"User {user_id}\"\n\n@component\nclass UserService:\n    def __init__(self, db: Database):\n        self._db = db\n\n    def fetch_user(self, user_id: int) -> str:\n        return self._db.get_user(user_id)\n"
         },
         {
           "name": "main.py",
@@ -211,7 +230,12 @@
       ],
       "solution": {
         "app.py": "from typing import Protocol, runtime_checkable\nfrom pico_ioc import component\n\n@runtime_checkable\nclass Database(Protocol):\n    def get_user(self, user_id: int) -> str:\n        ...\n\n@component(scope=\"prototype\")\nclass RealDatabase:\n    def get_user(self, user_id: int) -> str:\n        print(f\"(DATABASE) Fetching user {user_id}\")\n        return f\"User {user_id}\"\n\n@component\nclass UserService:\n    def __init__(self, db: Database):\n        self._db = db\n\n    def fetch_user(self, user_id: int) -> str:\n        return self._db.get_user(user_id)\n"
-      }
+      },
+      "hints": [
+        "The decorator comes from typing, next to Protocol.",
+        "Without it, isinstance() against a Protocol raises TypeError.",
+        "@runtime_checkable above the class."
+      ]
     },
     {
       "id": 10,

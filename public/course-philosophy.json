@@ -32,9 +32,9 @@
       "title": "Your First Tightly Coupled Class",
       "description": "<h4>Observing The Problem</h4><p>Here we have a simple application. All the code—the <code>Database</code> class, the <code>ReportGenerator</code> class, and the main script—is in a single file for simplicity.</p><p>Notice inside <code>ReportGenerator.__init__</code>, it creates its own <code>Database</code> instance. This is the tight coupling we just discussed.</p><p>Your task is to simply run the code by pressing the 'Run' button. Observe how the script uses the generator and see the output in the console. There's nothing to fix yet—just understand how the pieces are connected.</p>",
       "files": [
-        { 
-          "name": "main.py", 
-          "content": "# All code is in one file for simplicity.\n\n# --- Contents of database.py ---\nclass Database:\n    \"\"\"A mock database class.\"\"\"\n    def get_user_data(self) -> dict:\n        print(\"(DATABASE) Connecting and fetching data...\")\n        return {\"id\": 1, \"name\": \"Alice\"}\n\n# --- Contents of report.py ---\nclass ReportGenerator:\n    def __init__(self):\n        # This is tight coupling!\n        # The generator is responsible for creating its dependency.\n        self.db = Database()\n\n    def create_user_report(self) -> str:\n        user_data = self.db.get_user_data()\n        return f\"User Report: ID={user_data['id']}, Name={user_data['name']}\"\n\n# --- Main script ---\n# Create a generator\ngenerator = ReportGenerator()\n\n# Use it to create a report\nreport = generator.create_user_report()\n\nprint(report)\n" 
+        {
+          "name": "main.py",
+          "content": "# All code is in one file for simplicity.\n\n# --- Contents of database.py ---\nclass Database:\n    \"\"\"A mock database class.\"\"\"\n    def get_user_data(self) -> dict:\n        print(\"(DATABASE) Connecting and fetching data...\")\n        return {\"id\": 1, \"name\": \"Alice\"}\n\n# --- Contents of report.py ---\nclass ReportGenerator:\n    def __init__(self):\n        # This is tight coupling!\n        # The generator is responsible for creating its dependency.\n        self.db = Database()\n\n    def create_user_report(self) -> str:\n        user_data = self.db.get_user_data()\n        return f\"User Report: ID={user_data['id']}, Name={user_data['name']}\"\n\n# --- Main script ---\n# Create a generator\ngenerator = ReportGenerator()\n\n# Use it to create a report\nreport = generator.create_user_report()\n\nprint(report)\n"
         }
       ],
       "packages": [],
@@ -46,12 +46,14 @@
       "title": "The Challenge of Testing Coupled Code",
       "description": "<h4>Why is This Hard to Test?</h4><p>We're using the same code from the last level, but now we have a test. All the necessary classes have been placed in the <code>test_report.py</code> file alongside the test function for convenience.</p><p>But there's a problem. When we test <code>create_user_report</code>, it will always create and call the real <code>Database</code>. This is bad for testing because:</p><ul><li>We might not want to connect to a real database during tests.</li><li>We can't test how our report handles different data (e.g., a user with no name) because we can't control what the hard-coded database returns.</li></ul><p>Your task is to complete the test. Notice how difficult it is to make an assertion about what data was used. The test can only check the final string, and it will always be the same. The real challenge here is conceptual—realizing *why* this is a flawed design.</p>",
       "files": [
-        { 
-          "name": "test_report.py", 
-          "content": "# All code is in one file for simplicity.\n\n# --- Contents of database.py ---\nclass Database:\n    \"\"\"A mock database class.\"\"\"\n    def get_user_data(self) -> dict:\n        print(\"(DATABASE) Connecting and fetching data...\")\n        return {\"id\": 1, \"name\": \"Alice\"}\n\n# --- Contents of report.py ---\nclass ReportGenerator:\n    def __init__(self):\n        self.db = Database()\n\n    def create_user_report(self) -> str:\n        user_data = self.db.get_user_data()\n        return f\"User Report: ID={user_data['id']}, Name={user_data['name']}\"\n\n# --- Test ---\ndef test_create_user_report():\n    generator = ReportGenerator()\n    report = generator.create_user_report()\n    \n    # 👈 We can only assert the final output.\n    # We can't control the data, so the test is not very flexible.\n    assert report == \"User Report: ID=1, Name=Alice\"\n    \n    # How could we test with a different user, like Bob?\n    # With this design, we can't!\n" 
+        {
+          "name": "test_report.py",
+          "content": "# All code is in one file for simplicity.\n\n# --- Contents of database.py ---\nclass Database:\n    \"\"\"A mock database class.\"\"\"\n    def get_user_data(self) -> dict:\n        print(\"(DATABASE) Connecting and fetching data...\")\n        return {\"id\": 1, \"name\": \"Alice\"}\n\n# --- Contents of report.py ---\nclass ReportGenerator:\n    def __init__(self):\n        self.db = Database()\n\n    def create_user_report(self) -> str:\n        user_data = self.db.get_user_data()\n        return f\"User Report: ID={user_data['id']}, Name={user_data['name']}\"\n\n# --- Test ---\ndef test_create_user_report():\n    generator = ReportGenerator()\n    report = generator.create_user_report()\n    \n    # Nothing above lets this test choose what the database returns.\n    assert report == \"User Report: ID=1, Name=Alice\"\n    \n    # How could we test with a different user, like Bob?\n    # With this design, we can't!\n"
         }
       ],
-      "packages": ["pytest"],
+      "packages": [
+        "pytest"
+      ],
       "solution": {
         "test_report.py": "# All code is in one file for simplicity.\n\n# --- Contents of database.py ---\nclass Database:\n    \"\"\"A mock database class.\"\"\"\n    def get_user_data(self) -> dict:\n        print(\"(DATABASE) Connecting and fetching data...\")\n        return {\"id\": 1, \"name\": \"Alice\"}\n\n# --- Contents of report.py ---\nclass ReportGenerator:\n    def __init__(self):\n        self.db = Database()\n\n    def create_user_report(self) -> str:\n        user_data = self.db.get_user_data()\n        return f\"User Report: ID={user_data['id']}, Name={user_data['name']}\"\n\n# --- Test ---\ndef test_create_user_report():\n    generator = ReportGenerator()\n    report = generator.create_user_report()\n    \n    # 👈 We can only assert the final output.\n    # We can't control the data, so the test is not very flexible.\n    assert report == \"User Report: ID=1, Name=Alice\"\n    \n    # How could we test with a different user, like Bob?\n    # With this design, we can't!\n"
       }
@@ -70,15 +72,20 @@
       "title": "Implementing Setter Injection",
       "description": "<h4>Refactoring Time!</h4><p>It's time to apply the Setter Injection pattern. You need to modify the <code>ReportGenerator</code> class in the editor below.</p><p>Your tasks are:</p><ol><li>Modify the <code>__init__</code> method so it no longer creates the <code>Database</code> instance. Initialize <code>self.db</code> to <code>None</code> instead.</li><li>Create a new method called <code>set_database</code> that takes one argument and assigns it to <code>self.db</code>.</li></ol><p>I've already updated the main script section to use this new pattern. Once you've correctly refactored the class, press 'Run' and the code should work.</p>",
       "files": [
-        { 
-          "name": "main.py", 
-          "content": "# All code is in one file for simplicity.\n\n# --- Contents of database.py ---\nclass Database:\n    def get_user_data(self) -> dict:\n        return {\"id\": 1, \"name\": \"Alice\"}\n\n# --- Contents of report.py ---\nclass ReportGenerator:\n    # 👈 1. Change __init__ to not create the Database.\n    #         Initialize self.db to None.\n    def __init__(self):\n        self.db = Database()\n\n    # 👈 2. Add a new method `set_database` that accepts a\n    #         database object and assigns it to self.db.\n\n    def create_user_report(self) -> str:\n        user_data = self.db.get_user_data()\n        return f\"User Report: ID={user_data['id']}, Name={user_data['name']}\"\n\n# --- Main script ---\n# The controlling code now creates the dependency.\ndb_instance = Database()\n\n# Create the generator (it's empty for now).\ngenerator = ReportGenerator()\n\n# Inject the dependency using our new setter method.\ngenerator.set_database(db_instance)\n\n# Now we can create the report.\nreport = generator.create_user_report()\nprint(report)\n" 
+        {
+          "name": "main.py",
+          "content": "# All code is in one file for simplicity.\n\n# --- Contents of database.py ---\nclass Database:\n    def get_user_data(self) -> dict:\n        return {\"id\": 1, \"name\": \"Alice\"}\n\n# --- Contents of report.py ---\nclass ReportGenerator:\n    # TODO 1: this class should not be the one deciding where its Database\n    # comes from. Leave it without one.\n    def __init__(self):\n        self.db = Database()\n\n    # TODO 2: let the caller hand the database in afterwards. The main\n    # script below already shows the call it expects.\n\n    def create_user_report(self) -> str:\n        user_data = self.db.get_user_data()\n        return f\"User Report: ID={user_data['id']}, Name={user_data['name']}\"\n\n# --- Main script ---\n# The controlling code now creates the dependency.\ndb_instance = Database()\n\n# Create the generator (it's empty for now).\ngenerator = ReportGenerator()\n\n# Inject the dependency using our new setter method.\ngenerator.set_database(db_instance)\n\n# Now we can create the report.\nreport = generator.create_user_report()\nprint(report)\n"
         }
       ],
       "packages": [],
       "solution": {
         "main.py": "# All code is in one file for simplicity.\n\n# --- Contents of database.py ---\nclass Database:\n    def get_user_data(self) -> dict:\n        return {\"id\": 1, \"name\": \"Alice\"}\n\n# --- Contents of report.py ---\nclass ReportGenerator:\n    def __init__(self):\n        self.db = None\n\n    def set_database(self, database: object):\n        self.db = database\n\n    def create_user_report(self) -> str:\n        if not self.db:\n            raise ValueError(\"Database has not been set.\")\n        user_data = self.db.get_user_data()\n        return f\"User Report: ID={user_data['id']}, Name={user_data['name']}\"\n\n# --- Main script ---\n# The controlling code now creates the dependency.\ndb_instance = Database()\n\n# Create the generator (it's empty for now).\ngenerator = ReportGenerator()\n\n# Inject the dependency using our new setter method.\ngenerator.set_database(db_instance)\n\n# Now we can create the report.\nreport = generator.create_user_report()\nprint(report)\n"
-      }
+      },
+      "hints": [
+        "Read the main script at the bottom: it tells you the method name and what it receives.",
+        "__init__ takes no dependency now, so self.db starts as None.",
+        "def set_database(self, database): self.db = database"
+      ]
     },
     {
       "id": 6,
@@ -94,15 +101,20 @@
       "title": "Refactoring to Constructor Injection",
       "description": "<h4>The Final Refactor</h4><p>Let's refactor the <code>ReportGenerator</code> to use Constructor Injection.</p><p>Your tasks in the <code>ReportGenerator</code> class:</p><ol><li>Remove the <code>set_database</code> method entirely.</li><li>Modify the <code>__init__</code> method to accept a <code>database</code> argument.</li><li>Inside <code>__init__</code>, assign the passed-in <code>database</code> argument to <code>self.db</code>.</li></ol><p>I've updated the main script section to create the <code>ReportGenerator</code> using this new constructor. Once your changes are correct, the code will run successfully.</p>",
       "files": [
-        { 
-          "name": "main.py", 
-          "content": "# All code is in one file for simplicity.\n\n# --- Contents of database.py ---\nclass Database:\n    def get_user_data(self) -> dict:\n        return {\"id\": 1, \"name\": \"Alice\"}\n\n# --- Contents of report.py ---\nclass ReportGenerator:\n    # 👈 1. Modify __init__ to accept a `database` argument.\n    # 👈 2. Assign the argument to self.db.\n    def __init__(self):\n        self.db = None\n\n    # 👈 3. Remove the set_database method.\n    def set_database(self, database: object):\n        self.db = database\n\n    def create_user_report(self) -> str:\n        user_data = self.db.get_user_data()\n        return f\"User Report: ID={user_data['id']}, Name={user_data['name']}\"\n\n# --- Main script ---\n# The controlling code creates the dependency.\ndb_instance = Database()\n\n# The dependency is \"injected\" into the constructor.\ngenerator = ReportGenerator(database=db_instance)\n\n# The generator is ready to use immediately.\nreport = generator.create_user_report()\nprint(report)\n" 
+        {
+          "name": "main.py",
+          "content": "# All code is in one file for simplicity.\n\n# --- Contents of database.py ---\nclass Database:\n    def get_user_data(self) -> dict:\n        return {\"id\": 1, \"name\": \"Alice\"}\n\n# --- Contents of report.py ---\nclass ReportGenerator:\n    # TODO 1: the dependency should arrive when the object is built, not\n    # after. The main script below shows how it is passed in.\n    def __init__(self):\n        self.db = None\n\n    # TODO 2: once the constructor does the wiring, this method has no\n    # reason to exist.\n    def set_database(self, database: object):\n        self.db = database\n\n    def create_user_report(self) -> str:\n        user_data = self.db.get_user_data()\n        return f\"User Report: ID={user_data['id']}, Name={user_data['name']}\"\n\n# --- Main script ---\n# The controlling code creates the dependency.\ndb_instance = Database()\n\n# The dependency is \"injected\" into the constructor.\ngenerator = ReportGenerator(database=db_instance)\n\n# The generator is ready to use immediately.\nreport = generator.create_user_report()\nprint(report)\n"
         }
       ],
       "packages": [],
       "solution": {
         "main.py": "# All code is in one file for simplicity.\n\n# --- Contents of database.py ---\nclass Database:\n    def get_user_data(self) -> dict:\n        return {\"id\": 1, \"name\": \"Alice\"}\n\n# --- Contents of report.py ---\nclass ReportGenerator:\n    def __init__(self, database: object):\n        self.db = database\n\n    def create_user_report(self) -> str:\n        user_data = self.db.get_user_data()\n        return f\"User Report: ID={user_data['id']}, Name={user_data['name']}\"\n\n# --- Main script ---\n# The controlling code creates the dependency.\ndb_instance = Database()\n\n# The dependency is \"injected\" into the constructor.\ngenerator = ReportGenerator(database=db_instance)\n\n# The generator is ready to use immediately.\nreport = generator.create_user_report()\nprint(report)\n"
-      }
+      },
+      "hints": [
+        "The main script calls ReportGenerator(database=db_instance) - that is the signature you need.",
+        "A generator built this way is usable immediately; there is no half-built state to guard against.",
+        "def __init__(self, database): self.db = database"
+      ]
     },
     {
       "id": 8,
@@ -118,15 +130,34 @@
       "title": "Building Your First Factory",
       "description": "<h4>Organizing Object Creation</h4><p>Let's put the Factory Function pattern into practice. We have our familiar <code>Database</code> and <code>ReportGenerator</code> classes.</p><p>Your task is to complete the <code>create_report_generator</code> function in the <code>factories.py</code> file. It should:</p><ol><li>Create an instance of the <code>Database</code>.</li><li>Create an instance of the <code>ReportGenerator</code>, passing the database instance to its constructor.</li><li>Return the fully configured <code>ReportGenerator</code> instance.</li></ol><p><code>test_main.py</code> is already written to use your factory. Get the factory working, press 'Run', and the test will pass.</p>",
       "files": [
-        { "name": "database.py", "content": "import time\n_instance_counter = 0\nclass Database:\n    def __init__(self):\n        global _instance_counter\n        _instance_counter += 1\n        self.instance_id = _instance_counter\n        print(f\"(DATABASE) Creating instance #{self.instance_id}\")\n\n    def get_user_data(self) -> dict:\n        return {\"id\": 1, \"name\": \"Alice\"}\n" },
-        { "name": "report.py", "content": "from database import Database\n\nclass ReportGenerator:\n    def __init__(self, database: Database):\n        self.db = database\n\n    def create_user_report(self) -> str:\n        user_data = self.db.get_user_data()\n        return f\"User Report (from DB instance #{self.db.instance_id}): ID={user_data['id']}, Name={user_data['name']}\"\n" },
-        { "name": "factories.py", "content": "from database import Database\nfrom report import ReportGenerator\n\ndef create_report_generator() -> ReportGenerator:\n    # 👈 Implement this factory function.\n    # 1. Create a Database instance.\n    # 2. Create a ReportGenerator instance, injecting the database.\n    # 3. Return the generator.\n    pass\n" },
-        { "name": "test_main.py", "content": "from factories import create_report_generator\nfrom report import ReportGenerator\n\ndef test_factory():\n    print(\"--- First call ---\")\n    generator1 = create_report_generator()\n    assert isinstance(generator1, ReportGenerator)\n    report1 = generator1.create_user_report()\n    print(report1)\n    assert \"DB instance #1\" in report1\n\n    print(\"\\n--- Second call ---\")\n    generator2 = create_report_generator()\n    report2 = generator2.create_user_report()\n    print(report2)\n    assert \"DB instance #2\" in report2\n    \n    print(\"\\nNotice that a new Database instance was created each time.\")\n" }
+        {
+          "name": "database.py",
+          "content": "import time\n_instance_counter = 0\nclass Database:\n    def __init__(self):\n        global _instance_counter\n        _instance_counter += 1\n        self.instance_id = _instance_counter\n        print(f\"(DATABASE) Creating instance #{self.instance_id}\")\n\n    def get_user_data(self) -> dict:\n        return {\"id\": 1, \"name\": \"Alice\"}\n"
+        },
+        {
+          "name": "report.py",
+          "content": "from database import Database\n\nclass ReportGenerator:\n    def __init__(self, database: Database):\n        self.db = database\n\n    def create_user_report(self) -> str:\n        user_data = self.db.get_user_data()\n        return f\"User Report (from DB instance #{self.db.instance_id}): ID={user_data['id']}, Name={user_data['name']}\"\n"
+        },
+        {
+          "name": "factories.py",
+          "content": "from database import Database\nfrom report import ReportGenerator\n\ndef create_report_generator() -> ReportGenerator:\n    # TODO: assemble a ready-to-use ReportGenerator here. The test tells\n    # you how many Database instances it expects across two calls.\n    pass\n"
+        },
+        {
+          "name": "test_main.py",
+          "content": "from factories import create_report_generator\nfrom report import ReportGenerator\n\ndef test_factory():\n    print(\"--- First call ---\")\n    generator1 = create_report_generator()\n    assert isinstance(generator1, ReportGenerator)\n    report1 = generator1.create_user_report()\n    print(report1)\n    assert \"DB instance #1\" in report1\n\n    print(\"\\n--- Second call ---\")\n    generator2 = create_report_generator()\n    report2 = generator2.create_user_report()\n    print(report2)\n    assert \"DB instance #2\" in report2\n    \n    print(\"\\nNotice that a new Database instance was created each time.\")\n"
+        }
       ],
-      "packages": ["pytest"],
+      "packages": [
+        "pytest"
+      ],
       "solution": {
         "factories.py": "from database import Database\nfrom report import ReportGenerator\n\ndef create_report_generator() -> ReportGenerator:\n    db_instance = Database()\n    generator = ReportGenerator(database=db_instance)\n    return generator\n"
-      }
+      },
+      "hints": [
+        "The factory owns the assembly: build the collaborator, then build the object that needs it.",
+        "The test asserts DB instance #1 then #2, so each call must create its own Database.",
+        "return ReportGenerator(database=Database())"
+      ]
     },
     {
       "id": 10,
@@ -144,13 +175,20 @@
       "files": [
         {
           "name": "main.py",
-          "content": "_db_counter = 0\nclass Database:\n    def __init__(self):\n        global _db_counter\n        _db_counter += 1\n        self.instance_id = _db_counter\n        print(f\"(DATABASE) Instance #{self.instance_id} created.\")\n\n_user_service_counter = 0\nclass UserService:\n    def __init__(self, db: Database):\n        global _user_service_counter\n        _user_service_counter += 1\n        self.instance_id = _user_service_counter\n        self.db = db\n        print(f\"(SERVICE) Instance #{self.instance_id} created, using DB #{db.instance_id}.\")\n\nclass Container:\n    def __init__(self):\n        self._services = {} # Stores configuration\n        self._cache = {}    # Stores reused instances\n\n    def register(self, cls, reuse: bool = False):\n        # 👈 1. Store the class and its `reuse` flag.\n        #    Hint: self._services[cls] = {'reuse': reuse}\n        pass\n\n    def get(self, cls):\n        # 👈 2. Implement the logic to get a service based on `reuse`.\n        # - Find the config for `cls` in self._services.\n        # - If config says `reuse=True`:\n        #   - Check the self._cache for an existing instance.\n        #   - If found, return it.\n        #   - If not found, create one, store it in the cache, and return it.\n        # - If config says `reuse=False`, just create and return a new instance.\n        # - This simple version doesn't handle dependency resolution automatically.\n        return None\n\n# --- Test ---\ncontainer = Container()\ncontainer.register(Database, reuse=True)\ncontainer.register(UserService, reuse=False)\n\nprint(\"--- Testing Database (reuse=True) ---\")\ndb1 = container.get(Database)\ndb2 = container.get(Database)\nprint(f\"Are db1 and db2 the same object? {db1 is db2}\\n\")\nassert db1 is db2\n\nprint(\"--- Testing UserService (reuse=False) ---\")\n# Manual dependency injection using the container\n# We get a new UserService instance each time because reuse=False.\nservice1 = UserService(db=container.get(Database))\nservice2 = UserService(db=container.get(Database))\nprint(f\"Are service1 and service2 the same object? {service1 is not service2}\")\nassert service1 is not service2\nprint(f\"Does service2 use the same DB instance? {service2.db is db1}\")\nassert service2.db is db1\n"
+          "content": "_db_counter = 0\nclass Database:\n    def __init__(self):\n        global _db_counter\n        _db_counter += 1\n        self.instance_id = _db_counter\n        print(f\"(DATABASE) Instance #{self.instance_id} created.\")\n\n_user_service_counter = 0\nclass UserService:\n    def __init__(self, db: Database):\n        global _user_service_counter\n        _user_service_counter += 1\n        self.instance_id = _user_service_counter\n        self.db = db\n        print(f\"(SERVICE) Instance #{self.instance_id} created, using DB #{db.instance_id}.\")\n\nclass Container:\n    def __init__(self):\n        self._services = {} # Stores configuration\n        self._cache = {}    # Stores reused instances\n\n    def register(self, cls, reuse: bool = False):\n        # TODO 1: remember the class and whether its instance is reusable.\n        pass\n\n    def get(self, cls):\n        # TODO 2: return an instance of cls, honouring the reuse flag it was\n        # registered with. The asserts below define what \"honouring\" means.\n        # Dependency resolution is out of scope for this version.\n        return None\n\n# --- Test ---\ncontainer = Container()\ncontainer.register(Database, reuse=True)\ncontainer.register(UserService, reuse=False)\n\nprint(\"--- Testing Database (reuse=True) ---\")\ndb1 = container.get(Database)\ndb2 = container.get(Database)\nprint(f\"Are db1 and db2 the same object? {db1 is db2}\\n\")\nassert db1 is db2\n\nprint(\"--- Testing UserService (reuse=False) ---\")\n# Manual dependency injection using the container\n# We get a new UserService instance each time because reuse=False.\nservice1 = UserService(db=container.get(Database))\nservice2 = UserService(db=container.get(Database))\nprint(f\"Are service1 and service2 the same object? {service1 is not service2}\")\nassert service1 is not service2\nprint(f\"Does service2 use the same DB instance? {service2.db is db1}\")\nassert service2.db is db1\n"
         }
       ],
-      "packages": ["pytest"],
+      "packages": [
+        "pytest"
+      ],
       "solution": {
         "main.py": "_db_counter = 0\nclass Database:\n    def __init__(self):\n        global _db_counter\n        _db_counter += 1\n        self.instance_id = _db_counter\n        print(f\"(DATABASE) Instance #{self.instance_id} created.\")\n\n_user_service_counter = 0\nclass UserService:\n    def __init__(self, db: Database):\n        global _user_service_counter\n        _user_service_counter += 1\n        self.instance_id = _user_service_counter\n        self.db = db\n        print(f\"(SERVICE) Instance #{self.instance_id} created, using DB #{db.instance_id}.\")\n\nclass Container:\n    def __init__(self):\n        self._services = {} # Stores configuration\n        self._cache = {}    # Stores reused instances\n\n    def register(self, cls, reuse: bool = False):\n        self._services[cls] = {'reuse': reuse}\n\n    def get(self, cls):\n        config = self._services.get(cls)\n        if not config:\n            raise TypeError(f\"Service {cls.__name__} not registered.\")\n        \n        if config['reuse']:\n            if cls not in self._cache:\n                # This simple version doesn't resolve dependencies of the class itself.\n                self._cache[cls] = cls()\n            return self._cache[cls]\n        \n        # If not reusing, always create a new one.\n        return cls()\n\n# --- Test ---\ncontainer = Container()\ncontainer.register(Database, reuse=True)\ncontainer.register(UserService, reuse=False)\n\nprint(\"--- Testing Database (reuse=True) ---\")\ndb1 = container.get(Database)\ndb2 = container.get(Database)\nprint(f\"Are db1 and db2 the same object? {db1 is db2}\\n\")\nassert db1 is db2\n\nprint(\"--- Testing UserService (reuse=False) ---\")\n# Manual dependency injection using the container\n# We get a new UserService instance each time because reuse=False.\nservice1 = UserService(db=container.get(Database))\nservice2 = UserService(db=container.get(Database))\nprint(f\"Are service1 and service2 the same object? {service1 is not service2}\")\nassert service1 is not service2\nprint(f\"Does service2 use the same DB instance? {service2.db is db1}\")\nassert service2.db is db1\n"
-      }
+      },
+      "hints": [
+        "Two dicts are already there: _services for the registration, _cache for the shared instances.",
+        "reuse=True means the same object every time; reuse=False means a fresh one per call.",
+        "register: self._services[cls] = {'reuse': reuse}. get: on reuse, return _cache.setdefault(cls, cls())."
+      ]
     },
     {
       "id": 12,
@@ -171,7 +209,9 @@
           "content": "from typing import Protocol, Type, get_origin, get_args\n\n# --- Protocols and Implementations ---\nclass Notifier(Protocol):\n    def send(self, message: str):\n        ...\n\nclass EmailNotifier:\n    def send(self, message: str):\n        print(f\"EMAIL: {message}\")\n\nclass SMSNotifier:\n    def send(self, message: str):\n        print(f\"SMS: {message}\")\n\nclass NotificationService:\n    def __init__(self, notifiers: list[Notifier]):\n        self._notifiers = notifiers\n    \n    def send_all(self, message: str):\n        print(f\"Sending '{message}' to {len(self._notifiers)} channels...\")\n        for notifier in self._notifiers:\n            notifier.send(message)\n\n# --- A more advanced container ---\nclass Container:\n    def __init__(self):\n        self._providers = {}\n\n    def register(self, interface, concrete):\n        if interface not in self._providers:\n            self._providers[interface] = []\n        self._providers[interface].append(concrete)\n\n    def get(self, cls):\n        if get_origin(cls) is list:\n            item_type = get_args(cls)[0]\n            implementations = self._providers.get(item_type, [])\n            return [impl() for impl in implementations]\n        \n        # This simple container assumes the class has dependencies that are lists\n        if cls in self._providers:\n            # A real container would inspect __init__ properly\n            # For this lab, we hardcode the dependency resolution for NotificationService\n            if cls is NotificationService:\n                notifiers = self.get(list[Notifier])\n                return NotificationService(notifiers=notifiers)\n        \n        return cls()\n\n# --- Your Task ---\ncontainer = Container()\n\n# 1. Register EmailNotifier and SMSNotifier for the Notifier protocol\n# Hint: container.register(Notifier, EmailNotifier)\n\n# 2. Register the NotificationService itself\n# Hint: container.register(NotificationService, NotificationService)\n\n# 3. Get the NotificationService from the container\n# service = container.get(NotificationService)\n\n# 4. Call the send_all method\n# service.send_all(\"Hello, World!\")\n"
         }
       ],
-      "packages": ["pytest"],
+      "packages": [
+        "pytest"
+      ],
       "solution": {
         "main.py": "from typing import Protocol, Type, get_origin, get_args\n\n# --- Protocols and Implementations ---\nclass Notifier(Protocol):\n    def send(self, message: str):\n        ...\n\nclass EmailNotifier:\n    def send(self, message: str):\n        print(f\"EMAIL: {message}\")\n\nclass SMSNotifier:\n    def send(self, message: str):\n        print(f\"SMS: {message}\")\n\nclass NotificationService:\n    def __init__(self, notifiers: list[Notifier]):\n        self._notifiers = notifiers\n    \n    def send_all(self, message: str):\n        print(f\"Sending '{message}' to {len(self._notifiers)} channels...\")\n        for notifier in self._notifiers:\n            notifier.send(message)\n\n# --- A more advanced container ---\nclass Container:\n    def __init__(self):\n        self._providers = {}\n\n    def register(self, interface, concrete):\n        if interface not in self._providers:\n            self._providers[interface] = []\n        self._providers[interface].append(concrete)\n\n    def get(self, cls):\n        if get_origin(cls) is list:\n            item_type = get_args(cls)[0]\n            implementations = self._providers.get(item_type, [])\n            return [impl() for impl in implementations]\n        \n        if cls in self._providers:\n            if cls is NotificationService:\n                notifiers = self.get(list[Notifier])\n                return NotificationService(notifiers=notifiers)\n        \n        return cls()\n\n# --- Your Task ---\ncontainer = Container()\n\n# 1. Register EmailNotifier and SMSNotifier for the Notifier protocol\ncontainer.register(Notifier, EmailNotifier)\ncontainer.register(Notifier, SMSNotifier)\n\n# 2. Register the NotificationService itself\ncontainer.register(NotificationService, NotificationService)\n\n# 3. Get the NotificationService from the container\nservice = container.get(NotificationService)\n\n# 4. Call the send_all method\nservice.send_all(\"Hello from the Container!\")\n"
       }
@@ -190,14 +230,30 @@
       "title": "The Payoff: Testing with Mock Objects",
       "description": "<h4>Easy, Flexible Testing</h4><p>We've reached the final and most important benefit of DI: <strong>testability</strong>. Because our <code>ReportGenerator</code> accepts its dependency via the constructor, we can give it a *real* database in our main app, but a *fake* one in our tests!</p><p>This fake object is often called a 'mock' or 'test double'.</p><p>Your task is to complete <code>test_report.py</code>. I've started a <code>MockDatabase</code> for you.</p><ol><li>In <code>MockDatabase</code>, create a method <code>get_user_data</code> that returns a dictionary with test data (e.g., user 'Bob').</li><li>In <code>test_generator_with_mock</code>, create an instance of your <code>MockDatabase</code>.</li><li>Inject your mock into a new <code>ReportGenerator</code> instance.</li><li>Call <code>create_user_report</code> and assert that the output string contains the mock data you defined.</li></ol>",
       "files": [
-        { "name": "database.py", "content": "class Database:\n    def get_user_data(self) -> dict:\n        # This is the real implementation\n        return {\"id\": 1, \"name\": \"Alice\"}\n" },
-        { "name": "report.py", "content": "from database import Database\n\nclass ReportGenerator:\n    def __init__(self, database: Database):\n        self.db = database\n\n    def create_user_report(self) -> str:\n        user_data = self.db.get_user_data()\n        return f\"User Report: ID={user_data['id']}, Name={user_data['name']}\"\n" },
-        { "name": "test_report.py", "content": "from report import ReportGenerator\n\nclass MockDatabase:\n    \"\"\"A fake database for testing purposes.\"\"\"\n    # 👈 1. Implement a `get_user_data` method that returns\n    #         a dictionary for a test user, e.g., Bob.\n    pass\n\ndef test_generator_with_mock():\n    # 👈 2. Create an instance of MockDatabase.\n    mock_db = None\n    \n    # 👈 3. Create a ReportGenerator, injecting the mock.\n    generator = None\n    \n    # 4. Call the method and get the report.\n    report = generator.create_user_report()\n    \n    # 👈 5. Assert the report contains your mock user's name.\n    assert \"??\" in report\n" }
+        {
+          "name": "database.py",
+          "content": "class Database:\n    def get_user_data(self) -> dict:\n        # This is the real implementation\n        return {\"id\": 1, \"name\": \"Alice\"}\n"
+        },
+        {
+          "name": "report.py",
+          "content": "from database import Database\n\nclass ReportGenerator:\n    def __init__(self, database: Database):\n        self.db = database\n\n    def create_user_report(self) -> str:\n        user_data = self.db.get_user_data()\n        return f\"User Report: ID={user_data['id']}, Name={user_data['name']}\"\n"
+        },
+        {
+          "name": "test_report.py",
+          "content": "from report import ReportGenerator\n\nclass MockDatabase:\n    \"\"\"A fake database for testing purposes.\"\"\"\n    # TODO 1: this stand-in has to answer the same call the real Database\n    # answers. Look at report.py to see which one, and in what shape.\n    pass\n\ndef test_generator_with_mock():\n    # TODO 2: build the fake.\n    mock_db = None\n    \n    # TODO 3: hand it to the generator instead of a real database.\n    generator = None\n    \n    # 4. Call the method and get the report.\n    report = generator.create_user_report()\n    \n    # TODO 5: assert on the data YOUR fake returned - that is the payoff.\n    assert \"??\" in report\n"
+        }
       ],
-      "packages": ["pytest"],
+      "packages": [
+        "pytest"
+      ],
       "solution": {
         "test_report.py": "from report import ReportGenerator\n\nclass MockDatabase:\n    \"\"\"A fake database for testing purposes.\"\"\"\n    def get_user_data(self) -> dict:\n        return {\"id\": 2, \"name\": \"Bob\"}\n\ndef test_generator_with_mock():\n    # Create an instance of our fake database.\n    mock_db = MockDatabase()\n    \n    # Inject the mock into the class we are testing.\n    generator = ReportGenerator(database=mock_db)\n    \n    # Call the method.\n    report = generator.create_user_report()\n    \n    # Assert that the output used our mock data!\n    assert \"User Report: ID=2, Name=Bob\" in report\n"
-      }
+      },
+      "hints": [
+        "report.py calls self.db.get_user_data() and reads the 'id' and 'name' keys.",
+        "Injection is what makes this possible: ReportGenerator takes the database as a parameter.",
+        "Return {'id': 2, 'name': 'Bob'} from the mock and assert \"Bob\" in report."
+      ]
     },
     {
       "id": 16,

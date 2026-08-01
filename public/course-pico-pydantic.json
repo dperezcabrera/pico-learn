@@ -38,7 +38,7 @@
         },
         {
           "name": "services.py",
-          "content": "from pico_ioc import component\nfrom pico_pydantic import validate\nfrom schemas import ItemData\n\n@component\nclass ItemService:\n    # 👈 Add the @validate decorator to this method\n    def add_item(self, data: ItemData) -> str:\n        return f\"Added {data.name} at ${data.price:.2f}\"\n"
+          "content": "from pico_ioc import component\nfrom pico_pydantic import validate\nfrom schemas import ItemData\n\n@component\nclass ItemService:\n    # TODO: the ItemData argument should be checked before the body runs.\n    def add_item(self, data: ItemData) -> str:\n        return f\"Added {data.name} at ${data.price:.2f}\"\n"
         },
         {
           "name": "main.py",
@@ -75,7 +75,7 @@
         },
         {
           "name": "test_main.py",
-          "content": "import pico_ioc as pico\nimport services\nimport schemas\nimport pico_pydantic\n\ncontainer = pico.init(modules=[pico_pydantic, services])\nsvc = container.get(services.UserService)\n\ndef test_valid_user():\n    result = svc.create_user({\"username\": \"alice\", \"age\": 30})\n    assert \"alice\" in result\n    print(f\"PASS: {result}\")\n\ndef test_invalid_user():\n    try:\n        # Negative age should fail validation\n        svc.create_user({\"username\": \"bob\", \"age\": -5})\n        assert False, \"Should have raised an error\"\n    # 👈 Fix: catch the correct exception type\n    except ValueError:\n        print(\"PASS: Validation error caught correctly\")\n"
+          "content": "import pico_ioc as pico\nimport services\nimport schemas\nimport pico_pydantic\n\ncontainer = pico.init(modules=[pico_pydantic, services])\nsvc = container.get(services.UserService)\n\ndef test_valid_user():\n    result = svc.create_user({\"username\": \"alice\", \"age\": 30})\n    assert \"alice\" in result\n    print(f\"PASS: {result}\")\n\ndef test_invalid_user():\n    try:\n        # Negative age should fail validation\n        svc.create_user({\"username\": \"bob\", \"age\": -5})\n        assert False, \"Should have raised an error\"\n    # TODO: this except clause never fires. Find out what is really raised.\n    except ValueError:\n        print(\"PASS: Validation error caught correctly\")\n"
         }
       ],
       "packages": [
@@ -101,7 +101,7 @@
       "files": [
         {
           "name": "schemas.py",
-          "content": "from pydantic import BaseModel, Field, field_validator\n\nclass OrderData(BaseModel):\n    # 👈 Add Field constraints: product must be at least 1 char\n    product: str\n    # 👈 Add Field constraint: quantity must be greater than 0\n    quantity: int\n    # 👈 Add Field constraint: price_per_unit must be greater than 0\n    price_per_unit: float\n\n    @field_validator(\"product\")\n    @classmethod\n    def product_must_not_be_blank(cls, v: str) -> str:\n        if not v.strip():\n            raise ValueError(\"Product name cannot be blank\")\n        return v.strip()\n"
+          "content": "from pydantic import BaseModel, Field, field_validator\n\nclass OrderData(BaseModel):\n    # TODO: reject an empty product name.\n    product: str\n    # TODO: reject a non-positive quantity.\n    quantity: int\n    # TODO: reject a non-positive price.\n    price_per_unit: float\n\n    @field_validator(\"product\")\n    @classmethod\n    def product_must_not_be_blank(cls, v: str) -> str:\n        if not v.strip():\n            raise ValueError(\"Product name cannot be blank\")\n        return v.strip()\n"
         },
         {
           "name": "services.py",

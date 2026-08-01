@@ -34,7 +34,7 @@
       "files": [
         {
           "name": "tasks.py",
-          "content": "from pico_ioc import component\nfrom pico_celery import task\n\n@component\nclass MathTasks:\n    # 👈 Add @task(name=\"math.add\")\n    async def add(self, x: int, y: int) -> int:\n        return x + y\n\n    # 👈 Add @task(name=\"math.multiply\")\n    async def multiply(self, x: int, y: int) -> int:\n        return x * y\n"
+          "content": "from pico_ioc import component\nfrom pico_celery import task\n\n@component\nclass MathTasks:\n    # TODO: expose this method to the worker under a routing name.\n    async def add(self, x: int, y: int) -> int:\n        return x + y\n\n    # TODO: same here, with its own routing name.\n    async def multiply(self, x: int, y: int) -> int:\n        return x * y\n"
         },
         {
           "name": "test_tasks.py",
@@ -63,7 +63,7 @@
       "files": [
         {
           "name": "client.py",
-          "content": "from pico_celery import celery, send_task\n\n# 👈 Add @celery class decorator\nclass MathClient:\n    # 👈 Add @send_task(name=\"math.add\")\n    async def add(self, x: int, y: int) -> int:\n        pass\n\n    # 👈 Add @send_task(name=\"math.multiply\")\n    async def multiply(self, x: int, y: int) -> int:\n        pass\n"
+          "content": "from pico_celery import celery, send_task\n\n# TODO: mark this class as the client side of the task pair.\nclass MathClient:\n    # TODO: this method must send, not execute. Bind it to the worker's name.\n    async def add(self, x: int, y: int) -> int:\n        pass\n\n    # TODO: same for the other operation.\n    async def multiply(self, x: int, y: int) -> int:\n        pass\n"
         },
         {
           "name": "test_client.py",
@@ -100,7 +100,7 @@
       "files": [
         {
           "name": "tasks.py",
-          "content": "from pico_ioc import component\nfrom pico_celery import task\n\n# 👈 Add @component decorator\nclass TemplateService:\n    def render(self, template_name: str, **kwargs) -> str:\n        return f\"Rendered {template_name} with {kwargs}\"\n\n@component\nclass EmailTasks:\n    def __init__(self, template_service: TemplateService):\n        self.template_service = template_service\n\n    @task(name=\"email.send_welcome\")\n    async def send_welcome(self, user_email: str) -> str:\n        body = self.template_service.render(\"welcome\", email=user_email)\n        return f\"Sent to {user_email}: {body}\"\n"
+          "content": "from pico_ioc import component\nfrom pico_celery import task\n\n# TODO: EmailTasks asks for this class in its constructor. Make it\n# something the container can hand over.\nclass TemplateService:\n    def render(self, template_name: str, **kwargs) -> str:\n        return f\"Rendered {template_name} with {kwargs}\"\n\n@component\nclass EmailTasks:\n    def __init__(self, template_service: TemplateService):\n        self.template_service = template_service\n\n    @task(name=\"email.send_welcome\")\n    async def send_welcome(self, user_email: str) -> str:\n        body = self.template_service.render(\"welcome\", email=user_email)\n        return f\"Sent to {user_email}: {body}\"\n"
         },
         {
           "name": "test_tasks.py",
