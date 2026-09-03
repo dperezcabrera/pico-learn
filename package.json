@@ -9,17 +9,17 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "react-dom": "^19.2.0",
+    "react-dom": "^19.2.8",
     "react": "^19.2.0",
     "@codemirror/lang-python": "^6.2.1",
-    "@uiw/react-codemirror": "^4.25.2",
-    "@uiw/codemirror-theme-github": "^4.25.2",
+    "@uiw/react-codemirror": "^4.25.11",
+    "@uiw/codemirror-theme-github": "^4.25.11",
     "reactflow": "11"
   },
   "devDependencies": {
-    "@types/node": "^22.14.0",
-    "@vitejs/plugin-react": "^5.0.0",
-    "typescript": "~5.8.2",
-    "vite": "^8.0.0"
+    "@types/node": "^26.4.0",
+    "@vitejs/plugin-react": "^6.1.1",
+    "typescript": "~7.0.2",
+    "vite": "^8.2.2"
   }
 }
