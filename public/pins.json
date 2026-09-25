@@ -1,7 +1,7 @@
 {
   "pico-ioc": "2.5.1",
   "pico-fastapi": "0.4.1",
-  "pico-sqlalchemy": "0.5.1",
+  "pico-sqlalchemy": "0.5.2",
   "pico-pydantic": "0.2.3",
   "pico-testing": "0.2.0",
   "pico-resilience": "0.2.1",
