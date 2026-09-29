@@ -1,12 +1,12 @@
 {
   "pico-ioc": "2.5.1",
-  "pico-fastapi": "0.4.1",
-  "pico-sqlalchemy": "0.5.2",
-  "pico-pydantic": "0.2.3",
+  "pico-fastapi": "0.4.2",
+  "pico-sqlalchemy": "0.5.3",
+  "pico-pydantic": "0.2.4",
   "pico-testing": "0.2.0",
-  "pico-resilience": "0.2.1",
-  "pico-celery": "0.2.3",
-  "pico-boot": "0.2.0",
-  "pico-caching": "0.1.1",
-  "pico-actuator": "0.2.1"
+  "pico-resilience": "0.2.2",
+  "pico-celery": "0.2.4",
+  "pico-boot": "0.2.1",
+  "pico-caching": "0.1.2",
+  "pico-actuator": "0.2.2"
 }
