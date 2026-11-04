@@ -17,7 +17,7 @@
     "reactflow": "11"
   },
   "devDependencies": {
-    "@types/node": "^26.6.5",
+    "@types/node": "^26.6.6",
     "@vitejs/plugin-react": "^6.1.2",
     "typescript": "~7.0.2",
     "vite": "^8.3.5"
